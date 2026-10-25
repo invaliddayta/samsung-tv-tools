@@ -1,0 +1,58 @@
+{
+  "schema": 1,
+  "features": {
+    "root": "tv-access --probe and a root command (id -u prints 0)",
+    "keys": "tv-key remote-control input",
+    "screenshot": "tv-shot compositor screenshot",
+    "cleanup": "tv-setup app cleanup and update settings"
+  },
+  "devices": [
+    {
+      "model": "QE77S90C (S90C, 2023)",
+      "build": "T-PTMCDEUC-REL-202408210126",
+      "tizen": "7.0",
+      "kernel": "5.4.77",
+      "arch": "armv7l",
+      "source": "maintainer",
+      "date": "2026-10-09",
+      "works": ["root", "keys", "screenshot", "cleanup"],
+      "notes": "Cleanup guard controls tested on the TV; the full automated apply has offline tests only."
+    },
+    {
+      "model": "S90D",
+      "build": "T-PTMDDEUC-REL-202601212151",
+      "tizen": "8.0",
+      "kernel": "5.4.249",
+      "arch": "armv7l",
+      "source": "community",
+      "reporter": "rkorn86",
+      "date": "2026-10-16",
+      "works": ["root"],
+      "report": "https://github.com/invaliddayta/samsung-tv-tools/issues/1"
+    },
+    {
+      "model": "S95C",
+      "build": "T-PTMCDEUC-0090-REL-202603190158",
+      "tizen": "9.0",
+      "kernel": "5.4.77",
+      "arch": "armv7l",
+      "source": "community",
+      "reporter": "magne4000",
+      "date": "2026-10-24",
+      "works": ["root"],
+      "report": "https://github.com/invaliddayta/samsung-tv-tools/issues/2"
+    },
+    {
+      "model": "S90D",
+      "build": "T-PTMDAKUC-0090-REL-202605141701",
+      "tizen": "9.0",
+      "kernel": "5.4.249",
+      "arch": "armv7l",
+      "source": "community",
+      "reporter": "tpollard64",
+      "date": "2026-10-25",
+      "works": ["root"],
+      "report": "https://github.com/invaliddayta/samsung-tv-tools/issues/1#issuecomment-6391371635"
+    }
+  ]
+}

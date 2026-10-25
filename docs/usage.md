@@ -3,7 +3,7 @@
 ## Developer Mode
 
 Use the model and software version shown in About This TV, not an update check.
-The tested build is in the README.
+Known builds are in the README's compatibility list.
 
 1. Open Smart Hub, then Apps.
 2. Enter `12345` with the remote's number keys.
@@ -41,6 +41,7 @@ Target precedence: `--tv HOST`, `TV_HOST`, then `tv_host` in
 
 ```sh
 tv-access --probe
+tv-access --report
 tv-access 'id -u'
 tv-access --timeout 90 'df -h /opt'
 tv-access 'head -c 65536 /dev/zero' > /tmp/bytes.bin
@@ -49,8 +50,10 @@ tv-shot /tmp/tv.png
 tv-shot /tmp/full.png --full
 ```
 
-`--probe` checks the full root path and reports the build. A handshake alone
-does not prove root. Require `id -u` to print 0 before doing further work.
+`--probe` checks the full root path, reports the build and says whether it is
+listed in `compatibility.json`. A handshake alone does not prove root. Require
+`id -u` to print 0 before doing further work. `--report` runs the same probe and
+prints a shareable report plus a prefilled issue link, without the TV's address.
 
 One quoted shell command is supported, including pipes and multiline text.
 There is no interactive TTY or streamed stdin. Normal setup takes about 3-4 seconds.

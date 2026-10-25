@@ -1,0 +1,37 @@
+name: Compatibility report
+description: Tell us whether the tools work on your TV
+title: "Compatibility report: "
+labels: ["compatibility"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for testing! Run `tv-access --report` and open the link it prints; it fills in the probe below.
+        Remove IP addresses, serial numbers and account names before posting.
+  - type: input
+    id: model
+    attributes:
+      label: TV model
+      description: From Settings > Support > About This TV, e.g. QE65S95CAT or S90D
+    validations:
+      required: true
+  - type: textarea
+    id: probe
+    attributes:
+      label: tv-access --report output
+      description: The table printed by `tv-access --report` (or the `--probe` output)
+    validations:
+      required: true
+  - type: checkboxes
+    id: works
+    attributes:
+      label: What worked?
+      options:
+        - label: "Root: `tv-access 'id -u'` printed 0"
+        - label: "Keys: `tv-key` moved the TV's UI"
+        - label: "Screenshot: `tv-shot` saved a screenshot"
+  - type: textarea
+    id: notes
+    attributes:
+      label: Anything else?
+      description: Problems, workarounds, what you used it for

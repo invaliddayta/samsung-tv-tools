@@ -1,7 +1,8 @@
 # Risks
 
 Use only a TV you own or are authorized to administer.
-Only the build in the README has been tested.
+Only the S90C build in the README is maintainer-tested. Other listed builds are
+community reports of root access.
 
 - The root path depends on Developer Mode and vulnerable firmware helpers.
   Do not update, downgrade, flash, reset Smart Hub or change security settings

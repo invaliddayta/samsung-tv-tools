@@ -1,6 +1,6 @@
 ---
 name: tv-access
-description: Run root commands on an authorized Samsung S90C over SDB. Returns stdout, stderr and exit status. Reacquires root per command after reboot. Requires the TV powered on and Developer Mode configured.
+description: Run root commands on an authorized Samsung Tizen TV over SDB. Returns stdout, stderr and exit status. Reacquires root per command after reboot. Requires the TV powered on and Developer Mode configured.
 ---
 
 # TV access

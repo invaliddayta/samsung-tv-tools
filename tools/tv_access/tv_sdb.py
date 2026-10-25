@@ -15,6 +15,7 @@ import tarfile
 import tempfile
 import time
 
+import compat
 from sdb_direct import DirectSDB, SDBError
 from tv_config import resolve_host
 
@@ -42,19 +43,7 @@ def exclusive():
         os.close(fd)
 
 
-KNOWN_GOOD = {
-    'T-PTMCDEUC-REL-202408210126': (
-        'tested configuration: Samsung QE77S90C (2023), firmware family '
-        'T-PTMCDEUC-2000.2, verified 2026-10-09'),
-}
-
-# Builds where a user reported the probe and a root command working. Not tested
-# by us; tv-setup is still S90C-only.
-COMMUNITY_REPORTED = {
-    'T-PTMDDEUC-REL-202601212151': (
-        'Samsung S90D, Tizen 8.0, root probe and id reported working by a user '
-        '(issue #1); not tested by us, tv-setup unsupported'),
-}
+# Known builds live in compatibility.json (see compat.py), not in this file.
 
 # Read-only device/capability report. Success of this job through the bootstrap
 # is itself the end-to-end proof: handshake, appinstall path, dotnet and
@@ -179,30 +168,52 @@ def execute(host, command, timeout):
     raise RuntimeError(f'No verified response for job {job}; command NOT retried. Last error: {last_error}')
 
 
+def print_report(info, present, missing):
+    """Print the shareable report. Root must be proven for it to count."""
+    body, url = compat.report(info, present, missing)
+    print('Compatibility report (no IP address, serial or account data):\n')
+    print(body)
+    print('\nAdd your model from Settings > Support > About This TV, plus anything else you tried')
+    print('(tv-key, tv-shot). Open a prefilled report here:\n')
+    print(url)
+    if missing or info.get('uid') != '0':
+        print('tv-access: root was not confirmed on this TV', file=sys.stderr)
+        return 125
+    return 0
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--tv', help='TV address; otherwise TV_HOST or local config.json')
     parser.add_argument('--timeout', type=int, default=45, help='command deadline in seconds (1–300)')
     parser.add_argument('--probe', action='store_true',
                         help='read-only end-to-end check: SDB, root chain, device/firmware support')
+    parser.add_argument('--report', action='store_true',
+                        help='run --probe and print a shareable compatibility report (no IP or serials)')
     parser.add_argument('command', nargs='?', help='one quoted shell command')
     args = parser.parse_args()
     if not 1 <= args.timeout <= 300:
         parser.error('--timeout must be 1–300')
-    if not args.probe and args.command is None:
-        parser.error('supply one quoted shell command or --probe')
+    if args.probe and args.report:
+        parser.error('use either --probe or --report')
+    if (args.probe or args.report) and args.command is not None:
+        parser.error('--probe and --report take no command')
+    if not (args.probe or args.report) and args.command is None:
+        parser.error('supply one quoted shell command, --probe or --report')
     if args.command is not None and (len(args.command.encode()) > 65536 or '\x00' in args.command):
         parser.error('command must be NUL-free and no more than 64 KiB')
     try:
         host = resolve_host(args.tv)
         with exclusive():
-            if args.probe:
+            if args.probe or args.report:
                 code, stdout, stderr, _flags = execute(host, PROBE_COMMAND, 30)
                 if code != 0:
                     print('tv-access: probe command failed on the TV', file=sys.stderr)
                     sys.stderr.buffer.write(stderr)
                     return 125
                 info, present, missing = parse_probe(stdout)
+                if args.report:
+                    return print_report(info, present, missing)
                 build = info.get('build', '') or 'unknown'
                 print('SDB handshake + root chain verified on ' + host + ':26101')
                 print('Device: uid {uid}, Tizen {tizen}, kernel {kernel}, {arch}'.format(
@@ -217,16 +228,7 @@ def main():
                     print('tv-access: unsupported device/firmware — required binaries missing',
                           file=sys.stderr)
                     return 125
-                known = KNOWN_GOOD.get(build)
-                reported = COMMUNITY_REPORTED.get(build)
-                if known:
-                    print('Assessment: ' + known)
-                elif reported:
-                    print('Assessment: the root chain WORKS on this device. Community report: '
-                          + reported + '.')
-                else:
-                    print('Assessment: the root chain WORKS on this device, but this firmware '
-                          'build is untested — treat as experimental and report your result.')
+                print('Assessment: ' + compat.assessment(build) + '.')
                 return 0
             code, stdout, stderr, flags = execute(host, args.command, args.timeout)
         sys.stdout.buffer.write(stdout)

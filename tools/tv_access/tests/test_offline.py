@@ -14,11 +14,13 @@ import tempfile
 import time
 import unittest
 from unittest.mock import patch
+from urllib.parse import parse_qs, urlparse
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+import compat
 from sdb_direct import DirectSDB, SDBError
 from tv_config import resolve_host
-from tv_sdb import COMMUNITY_REPORTED, KNOWN_GOOD, build_package, main, parse_probe
+from tv_sdb import build_package, main, parse_probe
 
 
 class FakeSocket:
@@ -126,13 +128,55 @@ class ProbeTests(unittest.TestCase):
         self.assertEqual(present, ['/usr/bin/dotnet', '/usr/sbin/sdbd-tarlauncher'])
         self.assertEqual(missing, [])
 
-    def test_known_good_build_recognized(self):
+    def test_maintainer_build_recognized(self):
         info, _, _ = parse_probe(self.SAMPLE)
-        self.assertIn(info['build'], KNOWN_GOOD)
+        self.assertEqual(compat.lookup(info['build'])['source'], 'maintainer')
+        self.assertIn('maintainer-tested', compat.assessment(info['build']))
 
-    def test_community_builds_are_not_known_good(self):
-        self.assertIn('T-PTMDDEUC-REL-202601212151', COMMUNITY_REPORTED)
-        self.assertFalse(set(COMMUNITY_REPORTED) & set(KNOWN_GOOD))
+    def test_community_and_unknown_assessment(self):
+        text = compat.assessment('T-PTMDDEUC-REL-202601212151')
+        self.assertIn('Reported working on S90D', text)
+        self.assertIn('tv-setup (app cleanup) is unsupported', text)
+        self.assertIn('tv-access --report', compat.assessment('T-UNKNOWN-REL-1'))
+
+    def run_main(self, argv, stdout):
+        out, err = io.StringIO(), io.StringIO()
+        with patch('sys.argv', ['tv-access', '--tv', '192.0.2.10', *argv]), \
+             patch('tv_sdb.execute', return_value=(0, stdout, b'', 0)) as execute, \
+             patch('tv_sdb.exclusive', contextlib.nullcontext), \
+             contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            code = main()
+        return code, out.getvalue(), err.getvalue(), execute
+
+    def test_probe_prints_registry_assessment(self):
+        code, out, _, _ = self.run_main(['--probe'], self.SAMPLE)
+        self.assertEqual(code, 0)
+        self.assertIn('Assessment: maintainer-tested on QE77S90C', out)
+
+    def test_report_is_private_and_prefills_issue(self):
+        sample = self.SAMPLE.replace(b'T-PTMCDEUC-REL-202408210126', b'T-NEWBUILD-REL-1')
+        code, out, _, execute = self.run_main(['--report'], sample)
+        self.assertEqual(code, 0)
+        execute.assert_called_once()
+        self.assertNotIn('192.0.2.10', out)
+        self.assertIn('| Firmware build | `T-NEWBUILD-REL-1` |', out)
+        self.assertIn('not listed yet', out)
+        url = urlparse(out.strip().splitlines()[-1])
+        self.assertEqual(url.path, '/invaliddayta/samsung-tv-tools/issues/new')
+        query = parse_qs(url.query)
+        self.assertEqual(query['template'], ['compatibility.yml'])
+        self.assertIn('T-NEWBUILD-REL-1', query['probe'][0])
+        self.assertNotIn('192.0.2.10', url.query)
+
+    def test_report_fails_without_helpers(self):
+        code, _, err, _ = self.run_main(['--report'], b'uid=0\nmissing:/usr/bin/dotnet\n')
+        self.assertEqual(code, 125)
+        self.assertIn('root was not confirmed', err)
+
+    def test_report_rejects_command(self):
+        with patch('sys.argv', ['tv-access', '--report', 'id']), \
+             contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+            main()
 
     def test_missing_binary_reported(self):
         _, present, missing = parse_probe(b'uid=0\nmissing:/usr/sbin/sdbd-tarlauncher\n')
@@ -144,6 +188,36 @@ class ProbeTests(unittest.TestCase):
         self.assertEqual(info['tizen'], '7.0.0')
         self.assertEqual(info['build'], '')
         self.assertNotIn('garbage line', info)
+
+
+class RegistryTests(unittest.TestCase):
+    def setUp(self):
+        self.data = compat.load()
+
+    def mutate(self, **changes):
+        data = json.loads(json.dumps(self.data))
+        data['devices'][1].update(changes)
+        return data
+
+    def test_readme_table_is_current(self):
+        readme = compat.README.read_text()
+        self.assertEqual(compat.render_readme(readme, self.data), readme)
+
+    def test_cleanup_build_matches_tv_setup(self):
+        setup = (compat.ROOT / 'tools/tv-setup.py').read_text()
+        builds = [d['build'] for d in self.data['devices'] if 'cleanup' in d['works']]
+        self.assertEqual(builds, [setup.split("BUILD = '", 1)[1].split("'", 1)[0]])
+
+    def test_community_cannot_claim_cleanup(self):
+        with self.assertRaises(ValueError):
+            compat.validate(self.mutate(works=['root', 'cleanup']))
+
+    def test_rejects_bad_entries(self):
+        for changes in ({'build': self.data['devices'][0]['build']}, {'build': 'not a build'},
+                        {'source': 'rumour'}, {'works': ['keys']}, {'report': 'https://example.com'},
+                        {'reporter': ''}, {'works': ['root', 'teleport']}):
+            with self.subTest(changes=changes), self.assertRaises(ValueError):
+                compat.validate(self.mutate(**changes))
 
 
 class PackageTests(unittest.TestCase):

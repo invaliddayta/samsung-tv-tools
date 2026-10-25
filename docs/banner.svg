@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="360" viewBox="0 0 1200 360" role="img" aria-labelledby="title desc">
-  <title id="title">S90C tools</title>
+  <title id="title">Samsung TV tools</title>
   <desc id="desc">A dark television outline showing a terminal session: tv-access 'id -u' printing 0, tv-setup plan as a preview, then tv-setup apply waiting for the user to type APPLY.</desc>
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
@@ -16,12 +16,12 @@
 
   <!-- Left: title -->
   <g font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif">
-    <text x="64" y="132" fill="#e5e7eb" font-size="44" font-weight="700">S90C tools</text>
-    <rect x="66" y="152" width="120" height="4" rx="2" fill="url(#glow)"/>
-    <text x="64" y="198" fill="#9ca3af" font-size="22">Direct SDB root access for Tizen 7.</text>
+    <text x="64" y="132" fill="#e5e7eb" font-size="44" font-weight="700">Samsung TV tools</text>
+    <rect x="66" y="152" width="200" height="4" rx="2" fill="url(#glow)"/>
+    <text x="64" y="198" fill="#9ca3af" font-size="22">Direct SDB root access for Tizen TVs.</text>
     <text x="64" y="228" fill="#9ca3af" font-size="22">Optional debloating. No firmware flash.</text>
     <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="15" fill="#6b7280">
-      <text x="64" y="284">QE77S90C · ARMv7 · T-PTMCDEUC-REL-202408210126</text>
+      <text x="64" y="284">S90C · S90D · S95C · Tizen 7-9 · ARMv7</text>
     </g>
   </g>
 

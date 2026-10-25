@@ -1,5 +1,5 @@
 {
-  description = "S90C tools: root commands and app cleanup";
+  description = "Samsung TV tools: root commands, keys, screenshots and app cleanup for Tizen TVs";
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 
@@ -12,8 +12,8 @@
           pkgs = import nixpkgs { inherit system; };
           runtime = with pkgs; [ python3 bash coreutils openssl ];
         in pkgs.stdenvNoCC.mkDerivation {
-          pname = "s90c-tools";
-          version = "0.2.0";
+          pname = "samsung-tv-tools";
+          version = "0.3.0";
           src = pkgs.lib.cleanSourceWith {
             src = self;
             filter = path: type:
@@ -21,8 +21,8 @@
                 relative = pkgs.lib.removePrefix ("${self}/") (toString path);
                 top = builtins.head (pkgs.lib.splitString "/" relative);
               in (toString path == toString self) || (
-                builtins.elem top [ "tools" "profiles" "docs" "README.md"
-                  "SECURITY.md" "THIRD_PARTY.md" "LICENSE" "flake.nix" "flake.lock" ]
+                builtins.elem top [ "tools" "profiles" "docs" "README.md" "compatibility.json"
+                  "CONTRIBUTING.md" "SECURITY.md" "THIRD_PARTY.md" "LICENSE" "flake.nix" "flake.lock" ]
                 && relative != "tools/app_sync_guard/build"
                 && !(pkgs.lib.hasPrefix "tools/app_sync_guard/build/" relative)
                 && relative != "tools/tv_access/config.json"
@@ -47,13 +47,14 @@
             python3 -m unittest discover -s tools/tv_access/tests
             python3 -W error::ResourceWarning -m unittest discover -s tools/app_sync_guard/tests
             python3 -W error::ResourceWarning -m unittest discover -s tools/tests
+            python3 tools/tv_access/compat.py --check
             runHook postCheck
           '';
           installPhase = ''
             runHook preInstall
-            destination=$out/share/s90c-tools
+            destination=$out/share/samsung-tv-tools
             mkdir -p "$destination" "$out/bin"
-            cp -R tools profiles docs README.md SECURITY.md THIRD_PARTY.md LICENSE "$destination/"
+            cp -R tools profiles docs README.md compatibility.json CONTRIBUTING.md SECURITY.md THIRD_PARTY.md LICENSE "$destination/"
             find "$destination/tools" -type d '(' -name __pycache__ -o -name tests ')' -prune -exec rm -rf {} +
             for tool in tv-access tv-key tv-shot; do
               makeWrapper "$destination/tools/tv_access/$tool" "$out/bin/$tool" --prefix PATH : ${pkgs.lib.makeBinPath runtime}
@@ -62,7 +63,7 @@
             runHook postInstall
           '';
           meta = {
-            description = "Root commands and app cleanup for the tested Samsung S90C build";
+            description = "Root commands, keys, screenshots and app cleanup for Samsung Tizen TVs";
             license = [ pkgs.lib.licenses.mit pkgs.lib.licenses.unlicense ];
             platforms = systems;
             mainProgram = "tv-access";
@@ -75,7 +76,7 @@
           app = name: {
             type = "app";
             program = "${self.packages.${system}.default}/bin/${name}";
-            meta.description = "${name} for the tested S90C";
+            meta.description = "${name} for Samsung Tizen TVs";
           };
         in {
           default = app "tv-access";
