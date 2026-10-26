@@ -15,7 +15,12 @@
       "arch": "armv7l",
       "source": "maintainer",
       "date": "2026-10-09",
-      "works": ["root", "keys", "screenshot", "cleanup"],
+      "works": [
+        "root",
+        "keys",
+        "screenshot",
+        "cleanup"
+      ],
       "notes": "Cleanup guard controls tested on the TV; the full automated apply has offline tests only."
     },
     {
@@ -27,7 +32,9 @@
       "source": "community",
       "reporter": "rkorn86",
       "date": "2026-10-16",
-      "works": ["root"],
+      "works": [
+        "root"
+      ],
       "report": "https://github.com/invaliddayta/samsung-tv-tools/issues/1"
     },
     {
@@ -39,7 +46,9 @@
       "source": "community",
       "reporter": "magne4000",
       "date": "2026-10-24",
-      "works": ["root"],
+      "works": [
+        "root"
+      ],
       "report": "https://github.com/invaliddayta/samsung-tv-tools/issues/2"
     },
     {
@@ -51,8 +60,41 @@
       "source": "community",
       "reporter": "tpollard64",
       "date": "2026-10-25",
-      "works": ["root"],
+      "works": [
+        "root"
+      ],
       "report": "https://github.com/invaliddayta/samsung-tv-tools/issues/1#issuecomment-6391371635"
+    },
+    {
+      "model": "QE65S85D (S85D, 2024)",
+      "build": "T-PTMDDEUC-0090-REL-202609252355",
+      "tizen": "9.0",
+      "kernel": "5.4.249",
+      "arch": "armv7l",
+      "source": "community",
+      "reporter": "ibrahimvarola",
+      "date": "2026-10-25",
+      "works": [
+        "root",
+        "keys"
+      ],
+      "report": "https://github.com/invaliddayta/samsung-tv-tools/issues/3"
+    },
+    {
+      "model": "S90C",
+      "build": "T-PTMCDEUC-0090-REL-202603190158",
+      "tizen": "9.0",
+      "kernel": "5.4.77",
+      "arch": "armv7l",
+      "source": "community",
+      "reporter": "ondererguven",
+      "date": "2026-10-25",
+      "works": [
+        "root",
+        "keys",
+        "screenshot"
+      ],
+      "report": "https://github.com/invaliddayta/samsung-tv-tools/issues/4"
     }
   ]
 }

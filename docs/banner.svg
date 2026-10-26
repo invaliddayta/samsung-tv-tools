@@ -21,7 +21,7 @@
     <text x="64" y="198" fill="#9ca3af" font-size="22">Direct SDB root access for Tizen TVs.</text>
     <text x="64" y="228" fill="#9ca3af" font-size="22">Optional debloating. No firmware flash.</text>
     <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="15" fill="#6b7280">
-      <text x="64" y="284">S90C · S90D · S95C · Tizen 7-9 · ARMv7</text>
+      <text x="64" y="284">S85D · S90C · S90D · S95C · Tizen 7-9 · ARMv7</text>
     </g>
   </g>
 

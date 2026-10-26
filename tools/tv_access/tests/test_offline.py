@@ -130,7 +130,7 @@ class ProbeTests(unittest.TestCase):
 
     def test_maintainer_build_recognized(self):
         info, _, _ = parse_probe(self.SAMPLE)
-        self.assertEqual(compat.lookup(info['build'])['source'], 'maintainer')
+        self.assertEqual(compat.lookup(info['build'])[0]['source'], 'maintainer')
         self.assertIn('maintainer-tested', compat.assessment(info['build']))
 
     def test_community_and_unknown_assessment(self):
@@ -138,6 +138,15 @@ class ProbeTests(unittest.TestCase):
         self.assertIn('Reported working on S90D', text)
         self.assertIn('tv-setup (app cleanup) is unsupported', text)
         self.assertIn('tv-access --report', compat.assessment('T-UNKNOWN-REL-1'))
+
+    def test_shared_build_lists_every_model(self):
+        build = 'T-PTMCDEUC-0090-REL-202603190158'
+        self.assertEqual({d['model'] for d in compat.lookup(build)}, {'S90C', 'S95C'})
+        text = compat.assessment(build)
+        self.assertIn('S95C by magne4000', text)
+        self.assertIn('S90C by ondererguven', text)
+        body, _ = compat.report({'build': build, 'uid': '0'}, [], [])
+        self.assertIn('listed: S95C (community), S90C (community)', body)
 
     def run_main(self, argv, stdout):
         out, err = io.StringIO(), io.StringIO()
@@ -213,7 +222,8 @@ class RegistryTests(unittest.TestCase):
             compat.validate(self.mutate(works=['root', 'cleanup']))
 
     def test_rejects_bad_entries(self):
-        for changes in ({'build': self.data['devices'][0]['build']}, {'build': 'not a build'},
+        first = self.data['devices'][0]
+        for changes in ({'build': first['build'], 'model': first['model']}, {'build': 'not a build'},
                         {'source': 'rumour'}, {'works': ['keys']}, {'report': 'https://example.com'},
                         {'reporter': ''}, {'works': ['root', 'teleport']}):
             with self.subTest(changes=changes), self.assertRaises(ValueError):

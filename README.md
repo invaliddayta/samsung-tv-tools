@@ -6,8 +6,8 @@ Linux tools for root commands, remote keys, screenshots and app cleanup on
 Samsung Tizen TVs. Uses [chris-ritsen's archive-root bootstrap](https://github.com/chris-ritsen/samsung-tv-root).
 No firmware flash.
 
-Started on a QE77S90C. Other owners have since reported root access working on
-the S90D and S95C, up to Tizen 9.
+Started on a QE77S90C. Owners of other 2023 and 2024 models have since reported
+it working, up to Tizen 9. See the list below.
 
 ## Compatibility
 
@@ -19,6 +19,8 @@ is destructive and not fully reversible.
 | Model | Tizen | Firmware build | Works | Source |
 |---|---|---|---|---|
 | QE77S90C (S90C, 2023) | 7.0 | `T-PTMCDEUC-REL-202408210126` | root, keys, screenshot, cleanup | maintainer-tested |
+| QE65S85D (S85D, 2024) | 9.0 | `T-PTMDDEUC-0090-REL-202609252355` | root, keys | [ibrahimvarola](https://github.com/invaliddayta/samsung-tv-tools/issues/3) |
+| S90C | 9.0 | `T-PTMCDEUC-0090-REL-202603190158` | root, keys, screenshot | [ondererguven](https://github.com/invaliddayta/samsung-tv-tools/issues/4) |
 | S90D | 8.0 | `T-PTMDDEUC-REL-202601212151` | root | [rkorn86](https://github.com/invaliddayta/samsung-tv-tools/issues/1) |
 | S90D | 9.0 | `T-PTMDAKUC-0090-REL-202605141701` | root | [tpollard64](https://github.com/invaliddayta/samsung-tv-tools/issues/1#issuecomment-6391371635) |
 | S95C | 9.0 | `T-PTMCDEUC-0090-REL-202603190158` | root | [magne4000](https://github.com/invaliddayta/samsung-tv-tools/issues/2) |

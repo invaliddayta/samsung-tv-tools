@@ -37,9 +37,10 @@ def validate(data):
         build = device['build']
         if not BUILD_RE.match(build):
             raise ValueError(f'{where}: invalid build {build!r}')
-        if build in seen:
-            raise ValueError(f'{where}: duplicate build {build}')
-        seen.add(build)
+        # One firmware build can ship on several models (S90C and S95C share builds).
+        if (build, device['model']) in seen:
+            raise ValueError(f'{where}: duplicate entry for {device["model"]} {build}')
+        seen.add((build, device['model']))
         if device['source'] not in SOURCES:
             raise ValueError(f'{where}: source must be maintainer or community')
         unknown = set(device['works']) - set(features)
@@ -59,22 +60,25 @@ def load(path=REGISTRY):
 
 
 def lookup(build, data=None):
+    """All entries for a firmware build, maintainer-tested first."""
     data = data or load()
-    return next((d for d in data['devices'] if d['build'] == build), None)
+    matches = [d for d in data['devices'] if d['build'] == build]
+    return sorted(matches, key=lambda d: (d['source'] != 'maintainer', d['date']))
 
 
 def assessment(build, data=None):
     """One-line support statement for a probed build."""
-    device = lookup(build, data)
-    if device is None:
+    devices = lookup(build, data)
+    if not devices:
         return ('the root chain WORKS on this device, but this firmware build is not in the '
                 'compatibility list yet. Please share it: tv-access --report')
-    works = ', '.join(device['works'])
-    if device['source'] == 'maintainer':
-        return f'maintainer-tested on {device["model"]} ({device["date"]}): {works}'
-    return (f'the root chain WORKS on this device. Reported working on {device["model"]} by '
-            f'{device["reporter"]} ({device["date"]}): {works}. Not tested by the maintainer; '
-            'tv-setup (app cleanup) is unsupported on this build')
+    first = devices[0]
+    if first['source'] == 'maintainer':
+        return f'maintainer-tested on {first["model"]} ({first["date"]}): {", ".join(first["works"])}'
+    reports = '; '.join(f'{d["model"]} by {d["reporter"]} ({d["date"]}): {", ".join(d["works"])}'
+                        for d in devices)
+    return (f'the root chain WORKS on this device. Reported working on {reports}. '
+            'Not tested by the maintainer; tv-setup (app cleanup) is unsupported on this build')
 
 
 def render_table(data=None):
@@ -102,8 +106,9 @@ def report(info, present, missing, data=None):
     Contains no IP address, serial number, account or network identifiers.
     """
     build = info.get('build') or 'unknown'
-    device = lookup(build, data) if build != 'unknown' else None
-    listed = (f'listed ({device["model"]}, {device["source"]})' if device else 'not listed yet')
+    devices = lookup(build, data) if build != 'unknown' else []
+    listed = ('listed: ' + ', '.join(f'{d["model"]} ({d["source"]})' for d in devices)
+              if devices else 'not listed yet')
     lines = [
         '| Field | Value |', '|---|---|',
         f'| Firmware build | `{build}` |',
