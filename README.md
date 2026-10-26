@@ -87,6 +87,14 @@ reversible. Run it when nobody is watching. The individual guard controls were
 tested on the TV, but the full automated apply workflow has only offline tests.
 See [cleanup, guard and recovery](docs/debloat.md).
 
+## Optional update-popup blocking
+
+Still getting upgrade offers with auto-update off? An external DNS filter
+suppressed the observed offer on our S90C/Tizen 7. The [setup guide](docs/update-popups.md)
+includes a small [domain list](blocklists/samsung-update-offers.txt), checks and
+rollback. No root is needed for this setup. It can also prevent firmware/security
+update checks; it is not global on-TV DNS enforcement or verified on other builds.
+
 ## Development
 
 ```sh

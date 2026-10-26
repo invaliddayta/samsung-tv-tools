@@ -13,6 +13,9 @@ community reports of root access.
   reinstallable app archives. Recovery depends on store availability.
 - Turning auto-update off also stops automatic maintenance of retained apps.
   It does not guarantee that upgrade offers stop appearing.
+- The optional [DNS blocklist](docs/update-popups.md) can prevent firmware checks
+  and access to security updates. It is not just a cosmetic popup setting.
+  Unfiltered fallback resolvers, hardcoded DNS and encrypted DNS can bypass it.
 - Guard changes refresh app metadata and can affect store/sync behavior.
   Apply only when nobody is watching.
 - A failed request may already have run. Do not blindly repeat a write,

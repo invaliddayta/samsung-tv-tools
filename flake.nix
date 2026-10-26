@@ -21,7 +21,7 @@
                 relative = pkgs.lib.removePrefix ("${self}/") (toString path);
                 top = builtins.head (pkgs.lib.splitString "/" relative);
               in (toString path == toString self) || (
-                builtins.elem top [ "tools" "profiles" "docs" "README.md" "compatibility.json"
+                builtins.elem top [ "tools" "profiles" "docs" "blocklists" "README.md" "compatibility.json"
                   "CONTRIBUTING.md" "SECURITY.md" "THIRD_PARTY.md" "LICENSE" "flake.nix" "flake.lock" ]
                 && relative != "tools/app_sync_guard/build"
                 && !(pkgs.lib.hasPrefix "tools/app_sync_guard/build/" relative)
@@ -54,7 +54,7 @@
             runHook preInstall
             destination=$out/share/samsung-tv-tools
             mkdir -p "$destination" "$out/bin"
-            cp -R tools profiles docs README.md compatibility.json CONTRIBUTING.md SECURITY.md THIRD_PARTY.md LICENSE "$destination/"
+            cp -R tools profiles docs blocklists README.md compatibility.json CONTRIBUTING.md SECURITY.md THIRD_PARTY.md LICENSE "$destination/"
             find "$destination/tools" -type d '(' -name __pycache__ -o -name tests ')' -prune -exec rm -rf {} +
             for tool in tv-access tv-key tv-shot; do
               makeWrapper "$destination/tools/tv_access/$tool" "$out/bin/$tool" --prefix PATH : ${pkgs.lib.makeBinPath runtime}

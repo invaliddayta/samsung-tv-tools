@@ -1,0 +1,3 @@
+osb-v2.samsungqbe.com
+osb.samsungqbe.com
+osbstg-v2.samsungqbe.com
