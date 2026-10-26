@@ -21,6 +21,7 @@ is destructive and not fully reversible.
 | QE77S90C (S90C, 2023) | 7.0 | `T-PTMCDEUC-REL-202408210126` | root, keys, screenshot, cleanup | maintainer-tested |
 | QE65S85D (S85D, 2024) | 9.0 | `T-PTMDDEUC-0090-REL-202609252355` | root, keys | [ibrahimvarola](https://github.com/invaliddayta/samsung-tv-tools/issues/3) |
 | S90C | 9.0 | `T-PTMCDEUC-0090-REL-202603190158` | root, keys, screenshot | [ondererguven](https://github.com/invaliddayta/samsung-tv-tools/issues/4) |
+| S90C | 9.0 | `T-PTMCAKUC-0090-REL-202603190200` | root, screenshot | [chriseivert](https://github.com/invaliddayta/samsung-tv-tools/issues/5) |
 | S90D | 8.0 | `T-PTMDDEUC-REL-202601212151` | root | [rkorn86](https://github.com/invaliddayta/samsung-tv-tools/issues/1) |
 | S90D | 9.0 | `T-PTMDAKUC-0090-REL-202605141701` | root | [tpollard64](https://github.com/invaliddayta/samsung-tv-tools/issues/1#issuecomment-6391371635) |
 | S95C | 9.0 | `T-PTMCDEUC-0090-REL-202603190158` | root | [magne4000](https://github.com/invaliddayta/samsung-tv-tools/issues/2) |
