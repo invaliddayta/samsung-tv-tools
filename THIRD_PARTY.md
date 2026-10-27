@@ -19,6 +19,16 @@ The SDB entry point, SVE-2025-50109, comes from
 Our code provides the direct SDB transport, per-command runner and cleanup tools.
 First-party code and docs use [MIT](LICENSE).
 
+## TV-local DNS
+
+The optional DNS filter in `tools/tv_dns` is first-party code. It reaches root
+through the same SDB entry point and bootstrap. Its boot package bundles the
+unchanged bootstrap DLL and runtime configuration from `tools/tv_access/bootstrap/`,
+checked against `tools/tv_access/SHA256SUMS` at build time. It starts the TV's own
+dnsmasq, iptables, systemd and .NET runtime; none of these are bundled.
+Its default upstream resolvers are AdGuard DNS's public filtering servers,
+a third-party service.
+
 ## Shipped binaries
 
 The bootstrap DLL came from an earlier local build whose environment was not

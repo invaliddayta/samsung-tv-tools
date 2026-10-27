@@ -5,7 +5,7 @@
 The most useful contribution is a report from a TV that is not in the
 [compatibility list](README.md#compatibility) yet.
 
-1. Follow the [root access steps](README.md#root-access).
+1. Follow the [root access steps](README.md#quick-start).
 2. Run `tv-access --report`. It runs the read-only probe and prints the firmware
    build, Tizen version, kernel and architecture. It leaves out IP addresses,
    serial numbers and account data.

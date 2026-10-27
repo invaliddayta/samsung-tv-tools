@@ -26,6 +26,7 @@ __pycache__/
 **/bin/
 **/obj/
 /tools/app_sync_guard/build/
+/tools/tv_dns/*/build/
 /tools/tv_access/bootstrap/SamsungTvArchiveRoot
 /tools/tv_access/bootstrap/*.deps.json
 /tools/tv_access/bootstrap/*.pdb

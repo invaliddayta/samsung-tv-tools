@@ -43,8 +43,8 @@ This disables both known firmware-auto-update keys and both app-auto-update keys
 without uninstalling apps or enabling the restoration guard.
 Retained apps lose automatic updates too. These settings do not guarantee
 suppression of upgrade offers. No updater scan or download is triggered.
-For the observed S90C/Tizen 7 offer, see the separate, optional
-[DNS-blocking guide](update-popups.md). It is not part of `tv-setup`.
+For on-device filtering of update-offer domains, see the optional
+[TV-local DNS guide](tv-local-dns.md). It is not part of `tv-setup`.
 
 ## Restoration guard
 

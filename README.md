@@ -2,18 +2,98 @@
 
 ![Samsung TV tools](docs/banner.svg)
 
-Linux tools for root commands, remote keys, screenshots and app cleanup on
-Samsung Tizen TVs. Uses [chris-ritsen's archive-root bootstrap](https://github.com/chris-ritsen/samsung-tv-root).
+Root commands, remote control, screenshots, app cleanup and persistent on-device
+DNS blocking for Samsung Tizen TVs. Uses
+[chris-ritsen's archive-root bootstrap](https://github.com/chris-ritsen/samsung-tv-root).
 No firmware flash.
 
-Started on a QE77S90C. Owners of other 2023 and 2024 models have since reported
-it working, up to Tizen 9. See the list below.
+## Features
+
+| Feature | What it does |
+|---|---|
+| Root shell | Run bounded commands over SDB with stdout, stderr and exit status |
+| Remote control | Send key presses with `tv-key` |
+| Screenshots | Capture the compositor with `tv-shot` (not protected video) |
+| App cleanup | Preview and apply selected settings and app removals on supported builds |
+| [TV-local DNS blocking](docs/tv-local-dns.md) | Filter Samsung update-offer domains on the TV, with automatic boot startup and UDP/TCP diagnostics |
+
+## Quick start
+
+Use a trusted LAN and enable Developer Mode with your computer's LAN IP
+([instructions](docs/usage.md#developer-mode)). Turn off automatic firmware and
+app updates first. **Do not update, downgrade or flash firmware to match a listed
+build.** Read [the risks](SECURITY.md).
+
+```sh
+git clone https://github.com/invaliddayta/samsung-tv-tools.git
+cd samsung-tv-tools
+export TV_HOST=192.0.2.10  # replace with your TV's address
+nix run .#tv-access -- --probe
+nix run .#tv-access -- 'id -u'  # must print 0
+```
+
+Without Nix, use `./tools/tv_access/tv-access` with Python 3, Bash and OpenSSL.
+`tv-access` gets root on demand: no developer certificate or permanent boot
+service is needed. The optional DNS service has separate requirements below.
+SMACK/UEP and read-only filesystem restrictions still apply.
+
+## Commands
+
+| Command | Purpose |
+|---|---|
+| `tv-access 'command'` | Run a root command |
+| `tv-access --probe` | Check root access and whether the build is listed |
+| `tv-access --report` | Generate a shareable compatibility report |
+| `tv-key XF86Home` | Send remote-control keys |
+| `tv-shot /tmp/tv.png` | Save a compositor screenshot |
+| `tv-setup plan/apply/verify` | Preview, apply or verify settings and app removals |
+
+Use `nix run .#COMMAND -- ...`, or install the
+[local symlinks](docs/usage.md#local-installation).
+
+## TV-local DNS blocking
+
+An optional boot service runs the TV's native dnsmasq, blocking three Samsung
+update-offer domains and their subdomains. Other names go to AdGuard DNS, which
+also filters ads and trackers. It redirects other IPv4 DNS requests (UDP/TCP
+port 53) to the local resolver and rejects external IPv6 DNS. No separate LAN
+DNS server or proxy is required. Encrypted DNS such as DoH is not blocked.
+
+Setup requires root access, Developer Mode, your own Samsung TV signing
+certificates (validated with a Partner-level profile) and DNS-independent time
+synchronization. The service briefly changes the Developer Mode IP at each boot.
+Filtering starts once the service is ready, not immediately at power-on. It can
+prevent firmware/security update checks, and native DNS rollback requires care.
+
+See [setup, prerequisites, validation and rollback](docs/tv-local-dns.md).
+Compatibility depends on firmware capabilities; root access alone does not
+establish DNS-service compatibility.
+
+## App cleanup
+
+`tv-setup` is restricted to the firmware/model combination marked `cleanup` in
+the [compatibility table](#compatibility). The included profile selects 24 ad
+components and Ambient themes; streaming apps and device integrations are kept
+unless selected.
+
+```sh
+mkdir -p local
+cp profiles/s90c.json local/my-tv.json
+# Review the consequences and edit remove: true/false.
+nix run .#tv-setup -- plan --profile local/my-tv.json
+nix run .#tv-setup -- apply --profile local/my-tv.json
+nix run .#tv-setup -- verify --profile local/my-tv.json
+```
+
+Apply requires confirmation. App removal can delete data and is not fully
+reversible; run it when nobody is watching. The full automated apply workflow
+has offline tests only. See [cleanup, guard and recovery](docs/debloat.md).
 
 ## Compatibility
 
-Maintainer-tested means checked on our own TV. Community reports are not tested by us.
-App cleanup (`tv-setup`) only runs on maintainer-tested builds, because app removal
-is destructive and not fully reversible.
+Support is feature- and firmware-specific. The table records tested features,
+not blanket support for every tool. DNS-specific validation is documented in
+the [DNS guide](docs/tv-local-dns.md#status-read-this-first).
 
 <!-- compatibility:start -->
 | Model | Tizen | Firmware build | Works | Source |
@@ -27,74 +107,9 @@ is destructive and not fully reversible.
 | S95C | 9.0 | `T-PTMCDEUC-0090-REL-202603190158` | root | [magne4000](https://github.com/invaliddayta/samsung-tv-tools/issues/2) |
 <!-- compatibility:end -->
 
-**Tried it on your TV?** Run `tv-access --report`. It prints a short report
-without IP addresses or serial numbers and a link to a prefilled issue.
-Reports for builds already listed are welcome if you tested more features.
-See [CONTRIBUTING.md](CONTRIBUTING.md).
-
-## Root access
-
-Use a trusted LAN. Turn off automatic firmware and app updates before starting.
-**Do not update, downgrade or flash firmware to match a listed build.**
-Read [the risks](SECURITY.md), then enable Developer Mode with your computer's
-LAN IP ([instructions](docs/usage.md#developer-mode)).
-
-```sh
-git clone https://github.com/invaliddayta/samsung-tv-tools.git
-cd samsung-tv-tools
-export TV_HOST=192.0.2.10  # replace with your TV's address
-nix run .#tv-access -- --probe
-nix run .#tv-access -- 'id -u'  # must print 0
-```
-
-Without Nix, use `./tools/tv_access/tv-access` with Python 3, Bash and OpenSSL.
-No Tizen Studio or developer certificate is needed.
-
-Root access was tested across a normal reboot. Once SDB returns, each command
-automatically gets root again. No custom boot service is installed.
-SMACK/UEP and read-only filesystem restrictions still apply.
-
-## Commands
-
-| Command | Purpose |
-|---|---|
-| `tv-access 'command'` | Root command with stdout, stderr and exit status |
-| `tv-access --probe` | Check root access and show whether your build is listed |
-| `tv-access --report` | Shareable compatibility report |
-| `tv-key XF86Home` | Remote-control key input |
-| `tv-shot /tmp/tv.png` | Compositor screenshot, not protected video |
-| `tv-setup plan/apply/verify` | Preview, apply or check selected settings and app removals |
-
-Run commands with `nix run .#COMMAND -- ...`, or install the
-[local symlinks](docs/usage.md#local-installation).
-
-## Optional app cleanup
-
-Only for the maintainer-tested S90C build. `tv-setup` refuses other builds.
-The default profile selects 24 ad components and Ambient themes.
-Streaming apps and device integrations are kept unless you select them.
-
-```sh
-mkdir -p local
-cp profiles/s90c.json local/my-tv.json
-# Read the consequences and edit remove: true/false.
-nix run .#tv-setup -- plan --profile local/my-tv.json
-nix run .#tv-setup -- apply --profile local/my-tv.json
-nix run .#tv-setup -- verify --profile local/my-tv.json
-```
-
-Apply asks for confirmation. App removal can delete data and is not fully
-reversible. Run it when nobody is watching. The individual guard controls were
-tested on the TV, but the full automated apply workflow has only offline tests.
-See [cleanup, guard and recovery](docs/debloat.md).
-
-## Optional update-popup blocking
-
-Still getting upgrade offers with auto-update off? An external DNS filter
-suppressed the observed offer on our S90C/Tizen 7. The [setup guide](docs/update-popups.md)
-includes a small [domain list](blocklists/samsung-update-offers.txt), checks and
-rollback. No root is needed for this setup. It can also prevent firmware/security
-update checks; it is not global on-TV DNS enforcement or verified on other builds.
+To report another TV or additional features, run `tv-access --report`.
+The report excludes IP addresses and serial numbers and links to a prefilled
+issue. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Development
 
@@ -103,8 +118,7 @@ nix develop --no-write-lock-file
 nix flake check --no-write-lock-file  # offline tests, no TV access
 ```
 
-[Usage, builds and root mechanism](docs/usage.md) ·
-[Contributing](CONTRIBUTING.md) ·
+[Usage and builds](docs/usage.md) · [Contributing](CONTRIBUTING.md) ·
 [Attribution and binary provenance](THIRD_PARTY.md)
 
 First-party code: [MIT](LICENSE). Upstream bootstrap: Unlicense.

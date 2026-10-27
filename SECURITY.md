@@ -1,8 +1,8 @@
 # Risks
 
 Use only a TV you own or are authorized to administer.
-Only the S90C build in the README is maintainer-tested. Other listed builds are
-community reports of root access.
+Compatibility is feature- and firmware-specific. See the README table and each
+feature's guide; successful root access does not establish cleanup or DNS support.
 
 - The root path depends on Developer Mode and vulnerable firmware helpers.
   Do not update, downgrade, flash, reset Smart Hub or change security settings
@@ -13,15 +13,20 @@ community reports of root access.
   reinstallable app archives. Recovery depends on store availability.
 - Turning auto-update off also stops automatic maintenance of retained apps.
   It does not guarantee that upgrade offers stop appearing.
-- The optional [DNS blocklist](docs/update-popups.md) can prevent firmware checks
-  and access to security updates. It is not just a cosmetic popup setting.
-  Unfiltered fallback resolvers, hardcoded DNS and encrypted DNS can bypass it.
+- [TV-local DNS blocking](docs/tv-local-dns.md) can prevent firmware/security
+  update checks; it is not just a cosmetic popup setting. Filtering begins only
+  when the service is ready and does not block encrypted DNS such as DoH.
+- The optional DNS service runs at every boot, briefly points Developer Mode at
+  the TV itself and makes native DNS depend on a local resolver. A failure can
+  leave the TV without DNS or with Developer Mode pointing at itself. Review the
+  guide's validation scope and restore-first rollback procedure before enabling it.
 - Guard changes refresh app metadata and can affect store/sync behavior.
   Apply only when nobody is watching.
 - A failed request may already have run. Do not blindly repeat a write,
   uninstall or reboot after losing the result. Inspect the recorded state first.
 - Root does not bypass every SMACK/UEP restriction. Do not replace global
-  account/key files or invent boot hooks to work around a failure.
+  account/key files or invent boot hooks to work around a failure. The optional,
+  documented TV-local DNS service is the only boot-time component here.
 
 The command runner uses per-job keys and a loopback result socket. It accepts
 no further commands through that socket. This is not encryption for SDB.

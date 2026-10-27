@@ -96,7 +96,9 @@ Only handshake resets before a request are retried. Submitted commands are not.
 After a lost result, inspect effects and only that job's staging before further writes.
 
 To uninstall locally, remove the symlinks and config you installed.
-No custom TV boot service needs removal. Command side effects are separate.
+tv-access itself adds no TV boot service. The optional TV-local DNS service has
+its own [rollback](tv-local-dns.md#disable-and-roll-back). Command side effects
+are separate.
 
 ## Builds and tests
 

@@ -21,16 +21,17 @@
                 relative = pkgs.lib.removePrefix ("${self}/") (toString path);
                 top = builtins.head (pkgs.lib.splitString "/" relative);
               in (toString path == toString self) || (
-                builtins.elem top [ "tools" "profiles" "docs" "blocklists" "README.md" "compatibility.json"
+                builtins.elem top [ "tools" "profiles" "docs" "README.md" "compatibility.json"
                   "CONTRIBUTING.md" "SECURITY.md" "THIRD_PARTY.md" "LICENSE" "flake.nix" "flake.lock" ]
                 && relative != "tools/app_sync_guard/build"
                 && !(pkgs.lib.hasPrefix "tools/app_sync_guard/build/" relative)
+                && builtins.match "tools/tv_dns/[^/]+/build(/.*)?" relative == null
                 && relative != "tools/tv_access/config.json"
                 && !(pkgs.lib.hasInfix "/__pycache__" relative)
                 && !(pkgs.lib.hasSuffix ".pyc" relative)
               );
           };
-          nativeBuildInputs = with pkgs; [ makeWrapper mono python3 sqlite openssl ];
+          nativeBuildInputs = with pkgs; [ makeWrapper mono python3 sqlite openssl util-linux ];
           buildPhase = ''
             runHook preBuild
             export HOME=$TMPDIR/home
@@ -48,13 +49,20 @@
             python3 -W error::ResourceWarning -m unittest discover -s tools/app_sync_guard/tests
             python3 -W error::ResourceWarning -m unittest discover -s tools/tests
             python3 tools/tv_access/compat.py --check
+            # TV-local DNS: component tests and an unsigned package assembly, nothing shipped
+            bash tools/tv_dns/service/build.sh
+            rm -rf tools/tv_dns/service/build
+            mcs -warn:4 -main:ProtocolTests -out:"$TMPDIR/ProtocolTests.exe" \
+              tools/tv_dns/boot/DnsBootProbe.cs tools/tv_dns/boot/tests/ProtocolTests.cs
+            mono "$TMPDIR/ProtocolTests.exe"
+            python3 tools/tv_dns/boot/build.py --out "$TMPDIR/dnsboot"
             runHook postCheck
           '';
           installPhase = ''
             runHook preInstall
             destination=$out/share/samsung-tv-tools
             mkdir -p "$destination" "$out/bin"
-            cp -R tools profiles docs blocklists README.md compatibility.json CONTRIBUTING.md SECURITY.md THIRD_PARTY.md LICENSE "$destination/"
+            cp -R tools profiles docs README.md compatibility.json CONTRIBUTING.md SECURITY.md THIRD_PARTY.md LICENSE "$destination/"
             find "$destination/tools" -type d '(' -name __pycache__ -o -name tests ')' -prune -exec rm -rf {} +
             for tool in tv-access tv-key tv-shot; do
               makeWrapper "$destination/tools/tv_access/$tool" "$out/bin/$tool" --prefix PATH : ${pkgs.lib.makeBinPath runtime}
@@ -89,7 +97,7 @@
       devShells = eachSystem (system:
         let pkgs = import nixpkgs { inherit system; };
         in { default = pkgs.mkShell {
-          packages = with pkgs; [ python3 bash coreutils openssl mono sqlite ];
+          packages = with pkgs; [ python3 bash coreutils openssl mono sqlite util-linux ];
         }; });
     };
 }
