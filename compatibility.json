@@ -76,7 +76,8 @@
       "date": "2026-10-25",
       "works": [
         "root",
-        "keys"
+        "keys",
+        "screenshot"
       ],
       "report": "https://github.com/invaliddayta/samsung-tv-tools/issues/3"
     },
@@ -110,6 +111,22 @@
         "screenshot"
       ],
       "report": "https://github.com/invaliddayta/samsung-tv-tools/issues/5"
+    },
+    {
+      "model": "QA65S90CAWXXY (S90C, 2023)",
+      "build": "T-PTMCUABC-0090-REL-202603190158",
+      "tizen": "9.0",
+      "kernel": "5.4.77",
+      "arch": "armv7l",
+      "source": "community",
+      "reporter": "CeePeh",
+      "date": "2026-10-27",
+      "works": [
+        "root",
+        "keys",
+        "screenshot"
+      ],
+      "report": "https://github.com/invaliddayta/samsung-tv-tools/issues/6"
     }
   ]
 }
