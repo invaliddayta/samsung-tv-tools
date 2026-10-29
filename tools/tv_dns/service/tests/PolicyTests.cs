@@ -77,6 +77,32 @@ class PolicyTests {
         Cli(() => DnsSupervisor.CheckBlocklist(new string[] {"check-blocklist"}), out code);
         Check(code == 2, "Missing path exits 2");
     }
+    static void BlocklistFallback(string dir) {
+        string path = Path.Combine(dir, "fallback-domains.conf"), message = null;
+        bool error, inspected = false;
+        Action<string> log = text => message = text;
+        Func<DnsSupervisor.Result> metadata = () => new DnsSupervisor.Result {Text = "regular file:0:0:600:12"};
+        string[] domains = DnsSupervisor.LoadBlocklist(path, () => { inspected = true; return metadata(); }, log, out error);
+        Check(domains.Length == 3 && !error && !inspected && message == null, "Missing optional file needs no helper");
+        File.WriteAllText(path, "example.com\n");
+        domains = DnsSupervisor.LoadBlocklist(path, metadata, log, out error);
+        Check(domains.Length == 4 && domains[3] == "example.com" && !error && message.StartsWith("Loaded blocklist:"), "Validated optional policy loads");
+        // Exercise a real Process.Start failure, not just a synthesized exception or parser result.
+        domains = DnsSupervisor.LoadBlocklist(path,
+            () => DnsSupervisor.Run(Path.Combine(dir, "missing-stat"), ""), log, out error);
+        Check(domains.Length == 3 && error && message.StartsWith("Blocklist rejected; using three defaults:"), "Missing stat falls back instead of terminating DNS");
+        foreach (Exception failure in new Exception[] {new IOException("read failed"), new UnauthorizedAccessException("denied"),
+                 new ArgumentException("bad input"), new TimeoutException("helper timeout"), new System.ComponentModel.Win32Exception(13)}) {
+            domains = DnsSupervisor.LoadBlocklist(path, () => { throw failure; }, log, out error);
+            Check(domains.Length == 3 && error && message.StartsWith("Blocklist rejected;"), "Expected optional-policy failure falls back");
+        }
+        domains = DnsSupervisor.LoadBlocklist(path,
+            () => new DnsSupervisor.Result {Text = "regular file:0:0:644:12"}, log, out error);
+        Check(domains.Length == 3 && error, "Unsafe installed file falls back");
+        File.WriteAllText(path, "good.example\nserver=8.8.8.8\n");
+        domains = DnsSupervisor.LoadBlocklist(path, metadata, log, out error);
+        Check(domains.Length == 3 && error, "Malformed policy is never partially applied");
+    }
     static void Wire() {
         byte[] p = {0x12,0x34,0x81,0x83,0,1,0,0,0,0,0,0};
         Check(DnsPolicy.BlockedReply(p,0x1234), "Accept proper NXDOMAIN");
@@ -291,7 +317,7 @@ class PolicyTests {
         string dir = Path.Combine(Path.GetTempPath(), "tv-dns-tests-" + Guid.NewGuid().ToString("N"));
         try {
             Directory.CreateDirectory(dir);
-            Policy(); Blocklists(dir); Wire(); Listeners(); Drain(dir); Lock(dir); Markers(dir); Firewall(dir); Worker(); QueryMode();
+            Policy(); Blocklists(dir); BlocklistFallback(dir); Wire(); Listeners(); Drain(dir); Lock(dir); Markers(dir); Firewall(dir); Worker(); QueryMode();
             Console.WriteLine("PASS configurable domain-only blocklist, parser/ownership/size limits, offline validation, loopback/upstream/drop-privilege policy, narrow DNS-only rules, NXDOMAIN and query wire format, port-53 listener states, bounded cgroup drain, run/cleanup lock, boot-scoped ownership, complete-listing chain evidence, worker credentials, read-only query mode");
             return 0;
         } catch (Exception e) { Console.Error.WriteLine(e); return 1; }

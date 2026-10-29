@@ -488,26 +488,31 @@ class DnsSupervisor {
             CleanupRules(); CleanupLoopbackAddress(); State(false);
         }
     }
-    static void LoadBlocklist() {
-        blockedDomains = DnsPolicy.Domains; blocklistError = false;
-        if (!File.Exists(DnsPolicy.Blocklist)) return;
+    // Dependencies are supplied so the optional-policy fallback can be tested without root or a TV.
+    internal static string[] LoadBlocklist(string path, Func<Result> inspect, Action<string> log, out bool error) {
+        error = false;
+        if (!File.Exists(path)) return DnsPolicy.Domains;
         try {
-            Result metadata = Run("/usr/bin/stat", "-c %F:%u:%g:%a:%s -- " + DnsPolicy.Blocklist);
+            Result metadata = inspect();
             if (metadata.Truncated || !DnsPolicy.SafeBlocklistMetadata(metadata.Text))
                 throw new IOException("Blocklist must be a root:root regular file, mode 600 or 400, at most 64 KiB");
-            blockedDomains = DnsPolicy.ReadDomains(DnsPolicy.Blocklist);
-            Log("Loaded blocklist: " + blockedDomains.Length + " domains including the three defaults");
+            string[] domains = DnsPolicy.ReadDomains(path);
+            log("Loaded blocklist: " + domains.Length + " domains including the three defaults");
+            return domains;
         } catch (Exception e) when (e is IOException || e is UnauthorizedAccessException ||
-                                   e is ArgumentException || e is TimeoutException) {
+                                   e is ArgumentException || e is TimeoutException ||
+                                   e is System.ComponentModel.Win32Exception) {
             // A bad optional file must not take the TV's DNS away. Keep the core policy, report
             // the fallback, and never apply a partly parsed list. Reload requires a service restart.
-            blocklistError = true;
-            Log("Blocklist rejected; using three defaults: " + e.Message);
+            error = true;
+            log("Blocklist rejected; using three defaults: " + e.Message);
+            return DnsPolicy.Domains;
         }
     }
     static void Serve() {
         using (Lock(D + "/supervisor.lock", "Supervisor already running")) {
-            LoadBlocklist();
+            blockedDomains = LoadBlocklist(DnsPolicy.Blocklist,
+                () => Run("/usr/bin/stat", "-c %F:%u:%g:%a:%s -- " + DnsPolicy.Blocklist), Log, out blocklistError);
             PreflightOwnership();
             State(false);
             try {
