@@ -15,7 +15,7 @@ No firmware flash.
 | Remote control | Send key presses with `tv-key` |
 | Screenshots | Capture the compositor with `tv-shot` (not protected video) |
 | App cleanup | Preview and apply selected settings and app removals on supported builds |
-| [TV-local DNS blocking](docs/tv-local-dns.md) | Filter Samsung update-offer domains on the TV, with automatic boot startup and UDP/TCP diagnostics |
+| [TV-local DNS blocking](docs/tv-local-dns.md) | Block Samsung update, ACR, ad, log-upload and remote-management domains on the TV, with automatic boot startup and UDP/TCP diagnostics |
 
 ## Quick start
 
@@ -53,17 +53,20 @@ Use `nix run .#COMMAND -- ...`, or install the
 
 ## TV-local DNS blocking
 
-An optional boot service runs the TV's native dnsmasq, blocking three Samsung
-update-offer domains and their subdomains. Other names go to AdGuard DNS, which
-also filters ads and trackers. It redirects other IPv4 DNS requests (UDP/TCP
-port 53) to the local resolver and rejects external IPv6 DNS. No separate LAN
+An optional boot service runs the TV's native dnsmasq. By default it blocks three
+Samsung update-offer domains. An editable, opt-in [extra blocklist](docs/tv-local-dns.md#extra-blocked-domains-optional)
+adds firmware downloads, automatic content recognition (ACR), advertising, log
+uploads and remote management, including subdomains—without rebuilding the
+service. Other names go to AdGuard DNS, which also filters ads and trackers. The service redirects other IPv4 DNS requests
+(UDP/TCP port 53) to the local resolver and rejects external IPv6 DNS. No separate LAN
 DNS server or proxy is required. Encrypted DNS such as DoH is not blocked.
+An optional query log shows which names the TV looks up.
 
 Setup requires root access, Developer Mode, your own Samsung TV signing
 certificates (validated with a Partner-level profile) and DNS-independent time
 synchronization. The service briefly changes the Developer Mode IP at each boot.
-Filtering starts once the service is ready, not immediately at power-on. It can
-prevent firmware/security update checks, and native DNS rollback requires care.
+Filtering starts once the service is ready, not immediately at power-on. It
+blocks firmware/security updates, and native DNS rollback requires care.
 
 See [setup, prerequisites, validation and rollback](docs/tv-local-dns.md).
 Compatibility depends on firmware capabilities; root access alone does not

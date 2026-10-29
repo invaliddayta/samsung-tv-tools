@@ -11,12 +11,71 @@ class PolicyTests {
         string c = DnsPolicy.Config();
         Check(c.Contains("listen-address=127.0.0.1,127.0.0.2,::1\n") && c.Contains("bind-interfaces\n"), "Loopback binding");
         Check(c.Contains("no-resolv\n") && c.Contains("no-hosts\n") && !c.Contains("log-queries"), "No inherited/proxy resolver or query log");
-        Check(DnsPolicy.Domains.Length == 3 && !c.Contains("local=/samsungqbe.com/"), "Narrow block policy");
+        Check(DnsPolicy.Domains.Length == 3 && c.Split(new string[] {"local=/"}, StringSplitOptions.None).Length == 4, "Default remains three update-offer domains");
+        string[] example = DnsPolicy.ReadDomains("extra-domains.conf.example");
+        Check(example.Length == 25, "Example adds 22 optional domains");
+        string expanded = DnsPolicy.Config(false, example);
+        var seen = new System.Collections.Generic.HashSet<string>();
+        foreach (string d in example)
+            Check(DnsPolicy.ValidName(d) && d == d.ToLowerInvariant() && seen.Add(d) && expanded.Contains("local=/" + d + "/\n"), "Valid, unique block entry " + d);
+        Check(DnsPolicy.Domains[0] == "osb-v2.samsungqbe.com", "Health probe name");
+        string logged = DnsPolicy.Config(true);
+        Check(logged == c.Replace("pid-file=", "log-queries\nlog-facility=-\nlog-async=100\npid-file="), "Opt-in query log only adds stderr logging");
+        Check(DnsPolicy.QueryLine("dnsmasq[12]: query[A] lcprd1.samsungcloudsolution.net from 127.0.0.1") == "query[A] lcprd1.samsungcloudsolution.net from 127.0.0.1", "Query line");
+        Check(DnsPolicy.QueryLine("dnsmasq[12]: reply example.com is 1.2.3.4") == "reply example.com is 1.2.3.4", "Reply line");
+        Check(DnsPolicy.QueryLine("dnsmasq[12]: config samsungacr.com is NXDOMAIN") == "config samsungacr.com is NXDOMAIN", "Blocked line");
+        Check(DnsPolicy.QueryLine("dnsmasq[12]: query[A] osb-v2.samsungqbe.com from 127.0.0.1") == null, "Health probe not logged");
+        Check(DnsPolicy.QueryLine("dnsmasq[12]: started, version 2.80 cachesize 256") == null, "Status line not a query");
+        Check(DnsPolicy.QueryLine("query[A] x.com from 127.0.0.1") == null && DnsPolicy.QueryLine(null) == null, "Foreign line");
+        // Shared service domains must stay resolvable: clock, account, Smart Hub/app CDN, push.
+        foreach (string keep in new string[] {"samsungqbe.com", "samsungcloudsolution.com", "samsungcloudsolution.net",
+                 "samsungcloud.tv", "samsungcloud.com", "samsungcloudcdn.com", "samsungosp.com", "samsung.com", "gpm.samsungqbe.com",
+                 "time.samsungcloudsolution.com", "time.samsungcloudsolution.net", "cdn.samsungcloudsolution.com"})
+            Check(!seen.Contains(keep) && !expanded.Contains("local=/" + keep + "/"), "Shared service domain stays resolvable: " + keep);
         Check(!c.Contains("192.168.") && c.Contains("user=nobody\n"), "No private network dependence/root DNS");
         Check(DnsPolicy.Rules4.Length == 3 && DnsPolicy.Rules6.Length == 4, "Rule counts");
         Check(DnsPolicy.Rules4[0].Contains("-m cgroup") && !DnsPolicy.Rules4[0].Contains("uid"), "Resolver-only exemption");
         foreach (string rule in DnsPolicy.Rules4) Check(rule.Contains("RETURN") || rule.Contains("--dport 53"), "IPv4 scope");
         foreach (string rule in DnsPolicy.Rules6) Check(rule.Contains("RETURN") || rule.Contains("--dport 53"), "IPv6 scope");
+    }
+    static void Blocklists(string dir) {
+        string[] names = DnsPolicy.ParseDomains("# comment\r\nEXAMPLE.com # inline\nexample.com\n\nosb.samsungqbe.com\n");
+        Check(names.Length == 4 && names[0] == DnsPolicy.Domains[0] && names[3] == "example.com", "Normalize, deduplicate and retain defaults");
+        Check(DnsPolicy.ParseDomains("").Length == 3, "Empty file retains defaults");
+        foreach (string bad in new string[] {".", "com", "samsungcloud.tv", "samsungqbe.com", "cloudsolution.net/", "*.example.com", "0.0.0.0 example.com",
+                 "example.com/1.2.3.4", "server=1.2.3.4", "127.0.0.1", "::1", "123.45", "a..com", "a.com.", "a_b.com", "-a.com", "a-.com",
+                 "https://example.com", "a.com\tserver=1.2.3.4", "a\0.com", "é.com", new string('a',64) + ".com"})
+            Check(Throws(() => DnsPolicy.ParseDomains("good.example\n" + bad)), "Reject whole file: " + bad);
+        Check(Throws(() => DnsPolicy.ParseDomains(new string('#', DnsPolicy.MaxBlocklistBytes + 1))), "Bound blocklist size");
+        var many = new System.Text.StringBuilder();
+        for (int i = 0; i < DnsPolicy.MaxExtraDomains; i++) many.Append("d" + i + ".example\n");
+        Check(DnsPolicy.ParseDomains(many.ToString()).Length == 259, "Accept bounded number of domains");
+        Check(Throws(() => DnsPolicy.ParseDomains(many + "overflow.example\n")), "Bound extra domain count");
+        Check(DnsPolicy.SafeBlocklistMetadata("regular file:0:0:600:42"), "Trusted installed file");
+        Check(DnsPolicy.SafeBlocklistMetadata("regular empty file:0:0:400:0"), "Empty/read-only installed file");
+        foreach (string bad in new string[] {"symbolic link:0:0:777:20", "fifo:0:0:600:0", "directory:0:0:700:0",
+                 "regular file:1:0:600:42", "regular file:0:1:600:42", "regular file:0:0:666:42", "regular file:0:0:644:42",
+                 "regular file:0:0:600:65537", "regular file:0:0:600:-1", "regular file:0:0:600:42\nextra", ""})
+            Check(!DnsPolicy.SafeBlocklistMetadata(bad), "Reject unsafe metadata");
+        string path = Path.Combine(dir, "extra-domains.conf");
+        File.WriteAllText(path, "example.com\n");
+        int code;
+        string output = Cli(() => DnsSupervisor.Main(new string[] {"check-blocklist", path}), out code);
+        Check(code == 0 && output.Contains("VALID blocked_domains=4 extra_domains=1"), "Offline blocklist validation without root");
+        File.WriteAllText(path, "example.com\r\n", new System.Text.UTF8Encoding(true));
+        Check(DnsPolicy.ReadDomains(path).Length == 4, "Accept UTF-8 BOM and CRLF");
+        File.WriteAllText(path, "server=8.8.8.8\n");
+        Cli(() => DnsSupervisor.CheckBlocklist(new string[] {"check-blocklist", path}), out code);
+        Check(code == 1, "Invalid blocklist validation exits 1");
+        File.WriteAllBytes(path, new byte[] {0xff,0xfe,0xff});
+        Cli(() => DnsSupervisor.CheckBlocklist(new string[] {"check-blocklist", path}), out code);
+        Check(code == 1, "Reject malformed encoding");
+        File.WriteAllText(path, new string('#', DnsPolicy.MaxBlocklistBytes + 1));
+        Check(Throws(() => DnsPolicy.ReadDomains(path)), "Oversized file refused before read");
+        Cli(() => DnsSupervisor.CheckBlocklist(new string[] {"check-blocklist", path + ".missing"}), out code);
+        Check(code == 1, "Missing file validation exits 1");
+        Cli(() => DnsSupervisor.CheckBlocklist(new string[] {"check-blocklist"}), out code);
+        Check(code == 2, "Missing path exits 2");
     }
     static void Wire() {
         byte[] p = {0x12,0x34,0x81,0x83,0,1,0,0,0,0,0,0};
@@ -232,8 +291,8 @@ class PolicyTests {
         string dir = Path.Combine(Path.GetTempPath(), "tv-dns-tests-" + Guid.NewGuid().ToString("N"));
         try {
             Directory.CreateDirectory(dir);
-            Policy(); Wire(); Listeners(); Drain(dir); Lock(dir); Markers(dir); Firewall(dir); Worker(); QueryMode();
-            Console.WriteLine("PASS loopback/upstream/drop-privilege policy, narrow DNS-only rules, NXDOMAIN and query wire format, port-53 listener states, bounded cgroup drain, run/cleanup lock, boot-scoped ownership, complete-listing chain evidence, worker credentials, read-only query mode");
+            Policy(); Blocklists(dir); Wire(); Listeners(); Drain(dir); Lock(dir); Markers(dir); Firewall(dir); Worker(); QueryMode();
+            Console.WriteLine("PASS configurable domain-only blocklist, parser/ownership/size limits, offline validation, loopback/upstream/drop-privilege policy, narrow DNS-only rules, NXDOMAIN and query wire format, port-53 listener states, bounded cgroup drain, run/cleanup lock, boot-scoped ownership, complete-listing chain evidence, worker credentials, read-only query mode");
             return 0;
         } catch (Exception e) { Console.Error.WriteLine(e); return 1; }
         finally { if (Directory.Exists(dir)) Directory.Delete(dir, true); }

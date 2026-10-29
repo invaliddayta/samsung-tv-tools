@@ -31,6 +31,26 @@ passed:
 - YouTube/Netflix HTTPS checks and TizenTube's trusted proxy TLS and app startup
   passed. Playback was not retested with 0.0.6.
 
+**Configurable blocklist follow-up, 29 October 2026, same TV/firmware, no reboot:**
+- The optional example adds 22 entries (25 domains with the three defaults).
+  All 132 blocked-query cases passed, covering A/AAAA, UDP/TCP, loopback and
+  hardcoded destinations; allowed service names resolved. External IPv6 UDP/TCP
+  rejection counters increased.
+- Adding and removing a test domain worked without rebuilding. Invalid input
+  was rejected by the offline validator; forcing a restart with it retained
+  working DNS under the three-domain fallback, then the valid list restored.
+- A short PID1 rescue timer restored the original 0.0.6 runtime and its default
+  policy; the candidate was then reinstalled. Boot app, native DNS/NTP settings,
+  firmware and update safeguards were unchanged. Query logging was tested and
+  switched off afterwards.
+- Smart Hub rendered, YouTube/Netflix HTTPS and TizenTube proxy TLS passed.
+  TizenTube's playback position advanced under the 25-domain policy. Protected
+  video frames/audio were not captured; Netflix app launch and HTTPS were checked,
+  not Netflix playback. These are not a full audio/video quality test.
+
+This tests an in-place runtime upgrade, not a fresh boot of the new runtime.
+The signed boot package is unchanged. Other models/firmware remain untested.
+
 First-time installation and rollback with 0.0.6, other models, slow/offline
 startup and interruption during the Developer Mode IP change remain unverified.
 This is not a guarantee against every update popup or encrypted DNS (DoH).
@@ -53,12 +73,41 @@ Removal is not automatically safe; see
 4. The supervisor redirects all other IPv4 DNS (UDP/TCP 53) to that resolver and
    rejects external IPv6 DNS. Only the resolver's own cgroup is exempt.
 
-Blocked: `osb-v2.samsungqbe.com`, `osb.samsungqbe.com` and
-`osbstg-v2.samsungqbe.com`, including subdomains. Other names go to AdGuard DNS
-(`94.140.14.14`, `94.140.15.15`), the tested choice. **AdGuard also filters ads and
-trackers.** Changing the upstreams means editing the source, and is untested.
-There is no query log. Blocking these domains can prevent firmware/security
-update checks: see [SECURITY.md](../SECURITY.md).
+Blocked names return NXDOMAIN, including their subdomains. Only the three
+update-offer names are built in (`DnsPolicy.Domains`). All other rows below are
+**optional**, provided in `tools/tv_dns/service/extra-domains.conf.example` and
+loaded from a root-owned file; see [configuration](#extra-blocked-domains-optional).
+
+| Purpose | Names |
+|---|---|
+| Update offers | `osb-v2.samsungqbe.com`, `osb.samsungqbe.com`, `osbstg-v2.samsungqbe.com` |
+| Firmware downloads | `samsungotn.net`, `otn.samsungcloudcdn.com`, `otnprd8`–`otnprd11.samsungcloudsolution.net` |
+| Automatic content recognition | `samsungacr.com`, `acr-eu-prd.samsungcloud.tv`, `acr-us-prd.samsungcloud.tv`, `acr0.samsungcloudsolution.com`, `musicid.samsungcloudsolution.com` |
+| Advertising | `samsungads.com`, `samsungadhub.com`, `adgrx.com` |
+| Log, sensor-event and crash-dump uploads | `lcprd1.samsungcloudsolution.net`, `lcprd2.samsungcloudsolution.net`, `prderrordumphsm.samsungcloudsolution.com` |
+| Remote management (`rmdemon`) | `samsungrm.net`, `rm.samsungqbe.com`, `rmstg.samsungqbe.com`, `rmdev.samsungqbe.com`, `rmdev.samsungcloudsolution.net` |
+
+Sources: the ACR names follow the endpoint list of
+[Watching the Watchers](https://watchingthewatchers.github.io/watchingthewatchers/)
+(PETS 2027); the log endpoint and `rmdemon` follow public reverse-engineering
+reports from a rooted 2025 Samsung TV and are not independently confirmed here;
+the rest are names seen in this firmware or in community blocklists.
+
+Deliberately **not** blocked, because other functions depend on them: the parent
+domains `samsungqbe.com`, `samsungcloudsolution.com/.net`, `samsungcloud.tv`,
+`samsungcloud.com` and `samsungosp.com`; time servers (`time.*`), Samsung account
+login, the Smart Hub and app-store CDNs, `gpm.samsungqbe.com` and push services.
+
+DNS blocking prevents resolution of the listed names; it does not establish
+that all telemetry uploads stop. A LAN scan or local sensor processing still
+runs, and traffic using cached/hard-coded IP addresses, other names or encrypted
+DNS bypasses these domain rules.
+
+Other names go to AdGuard DNS (`94.140.14.14`, `94.140.15.15`), the tested
+choice. **AdGuard also filters ads and trackers.** Changing the upstreams means
+editing the source, and is untested. An optional [query log](#query-log-optional)
+records names the TV looks up. Blocking these
+domains prevents firmware/security updates: see [SECURITY.md](../SECURITY.md).
 
 ## Limits
 
@@ -114,6 +163,8 @@ python3 tools/tv_dns/boot/build.py --out tools/tv_dns/boot/build \
 
 Builds are not reproducible. Install `DnsSupervisor.dll` only together with the
 `startup.sha256` from the same build. Do not commit `build/`.
+`extra-domains.conf.example` is a separate optional policy, not part of the
+executable manifest. The default policy remains the three update-offer names.
 
 ## Install
 
@@ -210,6 +261,98 @@ tv-access 'tail -n 20 /opt/usr/home/owner/apps_rw/dnsbootprb/data/probe.log'
 
 `proof.txt` must show the current boot ID, `uid=0(`, `dns_ready=1` and
 `payload done`. Also repeat the queries from step 3.
+
+## Extra blocked domains (optional)
+
+The service reads `/opt/var/tv-local-dns/extra-domains.conf` at startup. Edit it
+and restart the service to change the policy; no rebuild or new signed boot
+package is needed. Upgrade an older runtime using [Update](#update) first—0.0.6's
+original runtime does not read this file.
+
+- One domain per line, with `#` comments and blank lines allowed. UTF-8 (optional
+  BOM) and CRLF are supported. Case is normalized and duplicates are ignored.
+- Each entry includes its subdomains. Do not use `*.`, URLs, IP addresses,
+  hosts-file/adblock syntax, or dnsmasq options. Known shared Samsung parent
+  domains in the table above are rejected to avoid disabling unrelated services.
+- Limit: 64 KiB and 256 unique extra domains. The three built-in names cannot be
+  removed using this file. The file must be a regular, non-symlink file owned by
+  root:root, mode `600` or `400`, inside the root-only installation directory.
+- A missing file gives the original three-domain policy. Rejected input applies
+  **none** of the extra entries, keeps DNS running under the defaults and sets
+  `"blocklist_error":true` in `status.json`; the reason goes to `service.log`.
+  This favors DNS availability, not fail-closed telemetry filtering. Validate
+  before changing anything; a rejected file does not retain the previous extra list.
+
+The example has 22 extra domains grouped by purpose. Comment out any you do not
+want. In particular, `lcprd1.samsungcloudsolution.net` may also be used for a
+connectivity check; check Home and apps on your firmware. Remote-management
+blocks can disable Samsung remote assistance. Shared parent, time, account,
+Smart Hub/CDN, `gpm` and push names are deliberately absent.
+
+Validate the example locally after building:
+
+```sh
+mono tools/tv_dns/service/build/DnsSupervisor.dll check-blocklist tools/tv_dns/service/extra-domains.conf.example
+# VALID blocked_domains=25 extra_domains=22
+```
+
+The validator checks syntax only, needs no root and changes no service state.
+It returns 0 for valid input, 1 for invalid/unreadable input and 2 for bad usage.
+
+To enable it, reuse `put` from Install step 2 to stage a **candidate**, then
+validate on the TV before replacing the active file:
+
+```sh
+put tools/tv_dns/service/extra-domains.conf.example /opt/var/tv-local-dns/extra-domains.conf.next
+tv-access 'set -eu
+D=/opt/var/tv-local-dns
+chown 0:0 "$D/extra-domains.conf.next"; chmod 600 "$D/extra-domains.conf.next"
+/usr/bin/dotnet "$D/DnsSupervisor.dll" check-blocklist "$D/extra-domains.conf.next"
+if [ -f "$D/extra-domains.conf" ]; then cp -p "$D/extra-domains.conf" "$D/extra-domains.conf.previous"; fi
+mv "$D/extra-domains.conf.next" "$D/extra-domains.conf"
+systemctl stop tv-local-dns.service
+/bin/sh -c "$(cat "$D/startup.command")"
+cat "$D/status.json"'
+```
+
+There is a short DNS outage during restart; TizenTube's loopback proxy is briefly
+unreachable too. Require `"ready":true`, `"blocked_domains":25` (for the unchanged
+example) and `"blocklist_error":false`, then repeat DNS, clock and app checks.
+Changes to the file do not affect the already running supervisor. Do not repeat
+a failed/ambiguous stop/start blindly; inspect the unit, logs and firewall state.
+
+To return to the built-in policy, move the extra file aside and restart the same
+way. To undo only the latest edit, restore your saved previous file (or stage it
+as `.next` and validate it as above) and restart. **Do not disable or uninstall the
+DNS service** while native DNS still points at loopback. This is blocklist-only
+rollback, distinct from [removing the DNS service](#disable-and-roll-back).
+
+## Query log (optional)
+
+To see which names the TV resolves (for example, to find more domains to
+block), create the flag file and restart the service. Without it, nothing is
+logged.
+
+```sh
+tv-access 'touch /opt/var/tv-local-dns/query-log && systemctl stop tv-local-dns.service && /bin/sh -c "$(cat /opt/var/tv-local-dns/startup.command)"'
+tv-access 'tail -n 50 /opt/var/tv-local-dns/queries.log'
+```
+
+The TV has no DNS for the few seconds between the stop and the start.
+`status.json` then shows `"query_log":true`. Each line holds a UTC timestamp
+and one dnsmasq entry: `query[A] name`, `forwarded`, `reply`/`cached` with the
+address, or `config name is NXDOMAIN` for a blocked name. Lookups of the
+health-check name `osb-v2.samsungqbe.com` are not logged. All queries come from
+`127.0.0.1`, so the log does not show which app asked. The log is root-only,
+kept across reboots, and rotates at 4 MiB to `queries.log.1` (about 8 MiB in
+total). If the TV's dnsmasq cannot log to stderr, the service starts without
+the log, notes this in `service.log`, and `status.json` shows `false`.
+
+To stop logging, remove the flag, restart the same way, then delete the logs:
+
+```sh
+tv-access 'rm -f /opt/var/tv-local-dns/query-log && systemctl stop tv-local-dns.service && /bin/sh -c "$(cat /opt/var/tv-local-dns/startup.command)" && rm -f /opt/var/tv-local-dns/queries.log*'
+```
 
 ## Update
 

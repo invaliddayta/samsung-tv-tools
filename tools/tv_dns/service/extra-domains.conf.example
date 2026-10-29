@@ -1,0 +1,39 @@
+# Optional extra blocks: one domain per line; subdomains are included.
+# Copy to /opt/var/tv-local-dns/extra-domains.conf as root:root, mode 600.
+# The three update-offer names remain built in; no rebuild is needed to edit this file.
+# Comment out entries you do not want. Validate before restarting the service.
+# Do NOT block shared parent domains: account, apps and time depend on them.
+# This blocks DNS lookups, not local sensing/scanning, hard-coded IPs or DoH.
+
+# Firmware downloads (also prevents security updates).
+samsungotn.net
+otn.samsungcloudcdn.com
+otnprd8.samsungcloudsolution.net
+otnprd9.samsungcloudsolution.net
+otnprd10.samsungcloudsolution.net
+otnprd11.samsungcloudsolution.net
+
+# Automatic content recognition and music identification.
+samsungacr.com
+acr-eu-prd.samsungcloud.tv
+acr-us-prd.samsungcloud.tv
+acr0.samsungcloudsolution.com
+musicid.samsungcloudsolution.com
+
+# Advertising.
+samsungads.com
+samsungadhub.com
+adgrx.com
+
+# Log / sensor-event / crash uploads. lcprd1 may also serve connectivity checks:
+# verify the Home screen and apps, or comment it out if they misbehave.
+lcprd1.samsungcloudsolution.net
+lcprd2.samsungcloudsolution.net
+prderrordumphsm.samsungcloudsolution.com
+
+# Remote support: blocking these may prevent Samsung remote assistance.
+samsungrm.net
+rm.samsungqbe.com
+rmstg.samsungqbe.com
+rmdev.samsungqbe.com
+rmdev.samsungcloudsolution.net

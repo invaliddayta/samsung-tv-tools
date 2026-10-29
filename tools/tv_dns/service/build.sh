@@ -12,7 +12,7 @@ mkdir -p build/tests
 "${mono[@]}" mcs -target:exe -out:build/DnsSupervisor.dll DnsSupervisor.cs
 "${mono[@]}" mcs -target:exe -main:PolicyTests -out:build/tests/PolicyTests.exe DnsSupervisor.cs tests/PolicyTests.cs
 "${mono[@]}" mono build/tests/PolicyTests.exe
-cp DnsSupervisor.runtimeconfig.json startup.command build/
+cp DnsSupervisor.runtimeconfig.json startup.command extra-domains.conf.example build/
 for file in startup.command DnsSupervisor.dll DnsSupervisor.runtimeconfig.json; do
     printf '%s  %s/%s\n' "$(sha256sum < "build/$file" | cut -d ' ' -f 1)" "$installed" "$file"
 done > build/startup.sha256

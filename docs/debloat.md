@@ -43,7 +43,7 @@ This disables both known firmware-auto-update keys and both app-auto-update keys
 without uninstalling apps or enabling the restoration guard.
 Retained apps lose automatic updates too. These settings do not guarantee
 suppression of upgrade offers. No updater scan or download is triggered.
-For on-device filtering of update-offer domains, see the optional
+For on-device blocking of update, ACR, ad and log-upload domains, see the optional
 [TV-local DNS guide](tv-local-dns.md). It is not part of `tv-setup`.
 
 ## Restoration guard

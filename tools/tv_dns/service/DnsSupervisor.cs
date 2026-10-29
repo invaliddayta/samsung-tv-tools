@@ -1,4 +1,4 @@
-// Fixed-policy TV-local DNS supervisor. No firmware or resolver-setting writes.
+// TV-local DNS supervisor with an optional domain-only blocklist. No firmware or resolver-setting writes.
 // Runs in the transient tv-local-dns.service unit that startup.command creates.
 using System;
 using System.Collections.Generic;
@@ -17,7 +17,58 @@ public static class DnsPolicy {
     public const string Group = "/sys/fs/cgroup/net_cls/tv-local-dns";
     public const string ClassId = "1413742594"; // 0x54440002, resolver ONLY
     public const string V4 = "TV_LOCAL_DNS4", V6 = "TV_LOCAL_DNS6";
+    // Always keep the tested update-offer policy and its first-name health probe.
     public static readonly string[] Domains = {"osb-v2.samsungqbe.com", "osb.samsungqbe.com", "osbstg-v2.samsungqbe.com"};
+    public const string Blocklist = Root + "/extra-domains.conf";
+    public const int MaxBlocklistBytes = 65536, MaxExtraDomains = 256;
+    static readonly string[] SharedParents = {"samsungqbe.com", "samsungcloudsolution.com", "samsungcloudsolution.net",
+        "samsungcloud.tv", "samsungcloud.com", "samsungcloudcdn.com", "samsungosp.com", "samsung.com"};
+
+    // Domain names only, not dnsmasq options, hosts files or adblock syntax. Validate the whole
+    // file before applying any of it; limits bound memory, generated config and startup probes.
+    public static string[] ParseDomains(string text) {
+        if (text == null || Encoding.UTF8.GetByteCount(text) > MaxBlocklistBytes)
+            throw new IOException("Blocklist exceeds 64 KiB");
+        var names = new List<string>(Domains);
+        var seen = new HashSet<string>(Domains, StringComparer.Ordinal);
+        using (var reader = new StringReader(text)) {
+            string line; int number = 0;
+            while ((line = reader.ReadLine()) != null) {
+                number++;
+                int comment = line.IndexOf('#');
+                string name = (comment < 0 ? line : line.Substring(0, comment)).Trim().ToLowerInvariant();
+                if (name.Length == 0) continue;
+                IPAddress address;
+                bool valid = ValidName(name) && name.Contains(".") && !name.Contains("_") &&
+                    !IPAddress.TryParse(name, out address);
+                foreach (string label in name.Split('.'))
+                    if (label.StartsWith("-") || label.EndsWith("-")) valid = false;
+                foreach (string parent in SharedParents)
+                    if (name == parent || parent.EndsWith("." + name, StringComparison.Ordinal)) valid = false;
+                if (!valid) throw new IOException("Invalid or shared-parent domain on line " + number);
+                if (seen.Add(name)) names.Add(name);
+                if (names.Count > Domains.Length + MaxExtraDomains)
+                    throw new IOException("Blocklist exceeds 256 extra domains");
+            }
+        }
+        return names.ToArray();
+    }
+    public static string[] ReadDomains(string path) {
+        if (new FileInfo(path).Length > MaxBlocklistBytes) throw new IOException("Blocklist exceeds 64 KiB");
+        // Do not let StreamReader auto-detect UTF-16/32 and silently accept malformed input.
+        string text = new UTF8Encoding(false, true).GetString(File.ReadAllBytes(path));
+        if (text.StartsWith("\uFEFF", StringComparison.Ordinal)) text = text.Substring(1); // UTF-8 BOM
+        return ParseDomains(text);
+    }
+    // `stat -c %F:%u:%g:%a:%s` without -L: reject symlinks, devices, pipes, other owners,
+    // writable-by-others files and oversized input before opening the installed blocklist.
+    public static bool SafeBlocklistMetadata(string text) {
+        string[] f = text.Split(':'); long size;
+        return f.Length == 5 && (f[0] == "regular file" || f[0] == "regular empty file") &&
+            f[1] == "0" && f[2] == "0" && (f[3] == "600" || f[3] == "400") &&
+            Int64.TryParse(f[4], NumberStyles.None, CultureInfo.InvariantCulture, out size) &&
+            size >= 0 && size <= MaxBlocklistBytes;
+    }
     public static readonly string[] Rules4 = {
         "-m cgroup --cgroup " + ClassId + " -j RETURN",
         "-p udp -m udp --dport 53 -j REDIRECT --to-ports 53",
@@ -30,11 +81,27 @@ public static class DnsPolicy {
         "-p tcp -m tcp --dport 53 -j REJECT --reject-with tcp-reset"
     };
     // Upstreams are AdGuard's filtering resolvers (the tested choice): they also drop ad and tracker names.
-    public static string Config() {
+    // logQueries (opt-in, flag file Root/query-log): dnsmasq writes queries to stderr, without blocking DNS
+    // when the reader is slow; the supervisor stores them in a bounded root-only log.
+    public static string Config(bool logQueries = false, string[] domains = null) {
         var b = new StringBuilder("port=53\nlisten-address=127.0.0.1,127.0.0.2,::1\nbind-interfaces\nno-resolv\nno-hosts\nuser=nobody\ngroup=nobody\nserver=94.140.14.14\nserver=94.140.15.15\ncache-size=256\n");
-        foreach (string domain in Domains) b.Append("local=/" + domain + "/\n");
+        foreach (string domain in domains ?? Domains) b.Append("local=/" + domain + "/\n");
+        if (logQueries) b.Append("log-queries\nlog-facility=-\nlog-async=100\n");
         b.Append("pid-file=" + Root + "/dnsmasq.pid\n");
         return b.ToString();
+    }
+    // Message of a dnsmasq query-log line ("dnsmasq[pid]: query[A] name from ..."), or null for
+    // other output and for the supervisor's own health probe of Domains[0].
+    public static string QueryLine(string line) {
+        if (line == null || !line.StartsWith("dnsmasq")) return null;
+        int start = line.IndexOf("]: ");
+        if (start < 0) return null;
+        string message = line.Substring(start + 3);
+        string[] words = message.Split(' ');
+        if (words.Length < 3 || words[1] == Domains[0]) return null;
+        if (words[0].StartsWith("query[") || words[0] == "forwarded" || words[0] == "reply" ||
+            words[0] == "cached" || words[0] == "cached-stale" || words[0] == "config") return message;
+        return null;
     }
     // One DNS question with recursion desired. Shared by the health check and query mode.
     public static byte[] Query(int id, string name, int type) {
@@ -142,6 +209,9 @@ class DnsSupervisor {
     static Process worker;
     static string boot;
     static int restarts;
+    static bool queryLog, blocklistError;
+    static string[] blockedDomains = DnsPolicy.Domains;
+    const long QueryLogBytes = 4 << 20; // queries.log and queries.log.1: at most about 8 MiB
     static readonly Stopwatch runtime = Stopwatch.StartNew();
     static readonly Queue<long> failures = new Queue<long>();
 
@@ -179,11 +249,22 @@ class DnsSupervisor {
             File.AppendAllText(file, DateTime.UtcNow.ToString("o") + " " + message + "\n");
         }
     }
+    static void LogQuery(string message) {
+        lock (logLock) {
+            string file = D + "/queries.log";
+            if (File.Exists(file) && new FileInfo(file).Length > QueryLogBytes) {
+                if (File.Exists(file + ".1")) File.Delete(file + ".1");
+                File.Move(file, file + ".1");
+            }
+            File.AppendAllText(file, DateTime.UtcNow.ToString("o") + " " + message + "\n");
+        }
+    }
     static void State(bool ready) {
         string data = "{\"ready\":" + (ready ? "true" : "false") + ",\"boot_id\":\"" + boot +
             "\",\"supervisor_pid\":" + Process.GetCurrentProcess().Id + ",\"dns_pid\":" +
             ((worker != null && !worker.HasExited) ? worker.Id : 0) + ",\"restarts\":" + restarts +
-            ",\"uptime\":" + File.ReadAllText("/proc/uptime").Split(' ')[0] + "}\n";
+            ",\"uptime\":" + File.ReadAllText("/proc/uptime").Split(' ')[0] + ",\"query_log\":" + (queryLog ? "true" : "false") +
+            ",\"blocked_domains\":" + blockedDomains.Length + ",\"blocklist_error\":" + (blocklistError ? "true" : "false") + "}\n";
         File.WriteAllText(D + "/status.tmp", data);
         if (rename(D + "/status.tmp", D + "/status.json") != 0) throw new IOException("Atomic status write failed");
     }
@@ -348,14 +429,29 @@ class DnsSupervisor {
         if (File.ReadAllText(CG + "/tasks").Trim().Length != 0) throw new IOException("Resolver cgroup is not empty");
         File.WriteAllText(CG + "/net_cls.classid", DnsPolicy.ClassId + "\n");
         if (File.ReadAllText(CG + "/net_cls.classid").Trim() != DnsPolicy.ClassId) throw new IOException("Cgroup class mismatch");
-        File.WriteAllText(D + "/dnsmasq.conf", DnsPolicy.Config());
-        Run("/usr/bin/dnsmasq", "--test --conf-file=" + D + "/dnsmasq.conf");
+        queryLog = File.Exists(D + "/query-log");
+        File.WriteAllText(D + "/dnsmasq.conf", DnsPolicy.Config(queryLog, blockedDomains));
+        try { Run("/usr/bin/dnsmasq", "--test --conf-file=" + D + "/dnsmasq.conf"); }
+        catch (IOException e) when (queryLog) {
+            // An older dnsmasq without stderr logging must not cost DNS: run without the query log.
+            Log("Query log unsupported, disabled: " + e.Message);
+            queryLog = false;
+            File.WriteAllText(D + "/dnsmasq.conf", DnsPolicy.Config(false, blockedDomains));
+            Run("/usr/bin/dnsmasq", "--test --conf-file=" + D + "/dnsmasq.conf");
+        }
         // Only the child joins the exempt net_cls cgroup; supervisor remains outside it.
         worker = new Process();
         worker.StartInfo = new ProcessStartInfo("/usr/bin/setsid", "/bin/sh") {
             UseShellExecute = false, RedirectStandardInput = true, RedirectStandardOutput = true, RedirectStandardError = true
         };
-        DataReceivedEventHandler log = (sender,e) => { if (e.Data != null) Log("dnsmasq: " + e.Data); };
+        bool logging = queryLog;
+        DataReceivedEventHandler log = (sender,e) => {
+            if (e.Data == null) return;
+            if (!logging) { Log("dnsmasq: " + e.Data); return; }
+            string query = DnsPolicy.QueryLine(e.Data);
+            if (query != null) LogQuery(query);
+            else if (e.Data.IndexOf("]: query[") < 0 && e.Data.IndexOf(" " + DnsPolicy.Domains[0] + " ") < 0) Log("dnsmasq: " + e.Data);
+        };
         worker.OutputDataReceived += log; worker.ErrorDataReceived += log;
         worker.Start(); worker.BeginOutputReadLine(); worker.BeginErrorReadLine();
         worker.StandardInput.WriteLine("set -e; echo $$ > " + CG + "/tasks; exec /usr/bin/dnsmasq --keep-in-foreground --conf-file=" + D + "/dnsmasq.conf");
@@ -364,7 +460,7 @@ class DnsSupervisor {
             try { VerifyWorker(); break; } catch (IOException) { Thread.Sleep(100); }
         }
         VerifyWorker();
-        foreach (string domain in DnsPolicy.Domains)
+        foreach (string domain in blockedDomains)
             foreach (int type in new int[] {1,28})
                 if (!Probe(domain,type)) throw new IOException("Local NXDOMAIN health check failed");
         Log("DNS worker ready pid=" + worker.Id + ", uid99, caps0");
@@ -392,8 +488,26 @@ class DnsSupervisor {
             CleanupRules(); CleanupLoopbackAddress(); State(false);
         }
     }
+    static void LoadBlocklist() {
+        blockedDomains = DnsPolicy.Domains; blocklistError = false;
+        if (!File.Exists(DnsPolicy.Blocklist)) return;
+        try {
+            Result metadata = Run("/usr/bin/stat", "-c %F:%u:%g:%a:%s -- " + DnsPolicy.Blocklist);
+            if (metadata.Truncated || !DnsPolicy.SafeBlocklistMetadata(metadata.Text))
+                throw new IOException("Blocklist must be a root:root regular file, mode 600 or 400, at most 64 KiB");
+            blockedDomains = DnsPolicy.ReadDomains(DnsPolicy.Blocklist);
+            Log("Loaded blocklist: " + blockedDomains.Length + " domains including the three defaults");
+        } catch (Exception e) when (e is IOException || e is UnauthorizedAccessException ||
+                                   e is ArgumentException || e is TimeoutException) {
+            // A bad optional file must not take the TV's DNS away. Keep the core policy, report
+            // the fallback, and never apply a partly parsed list. Reload requires a service restart.
+            blocklistError = true;
+            Log("Blocklist rejected; using three defaults: " + e.Message);
+        }
+    }
     static void Serve() {
         using (Lock(D + "/supervisor.lock", "Supervisor already running")) {
+            LoadBlocklist();
             PreflightOwnership();
             State(false);
             try {
@@ -438,8 +552,20 @@ class DnsSupervisor {
         if (!IPAddress.TryParse(text, out server)) return false;
         return server.AddressFamily == AddressFamily.InterNetworkV6 ? server.ScopeId == 0 : server.ToString() == text;
     }
+    // Offline/read-only validation; no root, lock, log, firewall or service changes.
+    internal static int CheckBlocklist(string[] args) {
+        if (args.Length != 2) { Console.Error.WriteLine("Usage: DnsSupervisor.dll check-blocklist FILE"); return 2; }
+        try {
+            string[] domains = DnsPolicy.ReadDomains(args[1]);
+            Console.WriteLine("VALID blocked_domains={0} extra_domains={1}", domains.Length, domains.Length - DnsPolicy.Domains.Length);
+            return 0;
+        } catch (Exception e) when (e is IOException || e is UnauthorizedAccessException || e is ArgumentException) {
+            Console.Error.WriteLine(e.GetType().Name + ": " + e.Message); return 1;
+        }
+    }
     internal static int Main(string[] args) {
         if (args.Length > 0 && args[0] == "query") return Query(args, 53);
+        if (args.Length > 0 && args[0] == "check-blocklist") return CheckBlocklist(args);
         try {
             if (getuid() != 0 || !Directory.Exists(D)) throw new IOException("Root-owned installation required");
             boot = File.ReadAllText("/proc/sys/kernel/random/boot_id").Trim();

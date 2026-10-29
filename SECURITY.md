@@ -13,9 +13,14 @@ feature's guide; successful root access does not establish cleanup or DNS suppor
   reinstallable app archives. Recovery depends on store availability.
 - Turning auto-update off also stops automatic maintenance of retained apps.
   It does not guarantee that upgrade offers stop appearing.
-- [TV-local DNS blocking](docs/tv-local-dns.md) can prevent firmware/security
-  update checks; it is not just a cosmetic popup setting. Filtering begins only
-  when the service is ready and does not block encrypted DNS such as DoH.
+- [TV-local DNS blocking](docs/tv-local-dns.md) blocks update-offer checks; the
+  optional extra list also blocks firmware/security downloads and Samsung remote
+  support. It is not just a cosmetic popup setting. Filtering begins only when
+  the service is ready and does not block hard-coded IP addresses or DoH.
+  Extra entries can break TV functions. A rejected extra list falls back to the
+  three built-in domains, not the last good extra policy; check `blocklist_error`
+  in `status.json`. Query logs can contain viewing-related domain names and stay
+  private unless you deliberately share them.
 - The optional DNS service runs at every boot, briefly points Developer Mode at
   the TV itself and makes native DNS depend on a local resolver. A failure can
   leave the TV without DNS or with Developer Mode pointing at itself. Review the
