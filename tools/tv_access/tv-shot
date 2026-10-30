@@ -17,12 +17,28 @@ if [ -z "$out" ]; then
 fi
 mkdir -p "$(dirname "$out")"
 tmp=$(mktemp -d)
-trap 'rm -rf "$tmp"' EXIT
+# Know the TV path before submitting capture, so even a lost reply can be cleaned up.
+remote=/tmp/tv-shot.${tmp##*/}
+stage=""
+cleanup() {
+    status=$?
+    if [ -n "$remote" ]; then
+        "$ROOT/tv-access" --timeout 15 "rm -rf '$remote'" >/dev/null ||
+            echo "tv-shot: could not clean up TV temporary directory $remote" >&2
+    fi
+    rm -rf -- "$tmp"
+    if [ -n "$stage" ]; then rm -rf -- "$stage"; fi
+    exit "$status"
+}
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 # Expand the embedded script's variables on the TV, never on the computer.
 # shellcheck disable=SC2016
-"$ROOT/tv-access" --timeout 15 '
-d=$(mktemp -d /tmp/tv-shot.XXXXXX) || exit 2
-trap '\''rm -rf "$d"'\'' EXIT
+"$ROOT/tv-access" --timeout 15 "d='$remote'"'
+umask 077
+mkdir "$d" || exit 2
+trap '\''[ "$?" -eq 0 ] || rm -rf "$d"'\'' EXIT
 enlightenment_info -dump_screen -p "$d/" -n capture.png </dev/null >/dev/null 2>&1 &
 p=$!
 i=0
@@ -35,20 +51,70 @@ if kill -0 "$p" 2>/dev/null; then
 fi
 wait "$p" 2>/dev/null || true
 [ -s "$d/capture.png" ] || { echo "tv-shot: no image produced" >&2; exit 3; }
-n=$(wc -c < "$d/capture.png")
-[ "$n" -le 1048576 ] || { echo "tv-shot: PNG exceeds 1 MiB transfer cap" >&2; exit 4; }
-head -c "$n" "$d/capture.png"
-' > "$tmp/s.png"
+n=$(wc -c < "$d/capture.png") || exit 4
+[ "$n" -le 33554432 ] || { echo "tv-shot: PNG exceeds 32 MiB size limit" >&2; exit 4; }
+sum=$(sha256sum < "$d/capture.png") || exit 4
+printf "%s %s\n" "$n" "${sum%% *}"
+' > "$tmp/info"
+if ! read -r n digest extra < "$tmp/info" ||
+   [[ ! "$n" =~ ^[1-9][0-9]{0,7}$ || "$n" -gt 33554432 ||
+      ! "$digest" =~ ^[0-9a-f]{64}$ || -n "$extra" ]]; then
+    echo 'tv-shot: invalid screenshot size or SHA-256 from TV (limit 32 MiB)' >&2
+    exit 4
+fi
+# 512 KiB becomes about 709 KiB with base64's line breaks, well below the
+# root channel's 1 MiB stdout cap. A bounded TV-side window lets /bin/sh
+# propagate dd failures without relying on a non-POSIX pipeline/pipefail.
+chunk_size=524288
+offset=0
+: > "$tmp/s.png"
+while [ "$offset" -lt "$n" ]; do
+    expected=$((n-offset))
+    if [ "$expected" -gt "$chunk_size" ]; then expected=$chunk_size; fi
+    if "$ROOT/tv-access" --timeout 15 "dd if='$remote/capture.png' of='$remote/window' bs=$chunk_size skip=$((offset/chunk_size)) count=1 2>/dev/null && base64 < '$remote/window'" > "$tmp/chunk.b64"; then
+        :
+    else
+        status=$?
+        echo "tv-shot: chunk retrieval failed at byte $offset" >&2
+        exit "$status"
+    fi
+    if ! base64 -d < "$tmp/chunk.b64" > "$tmp/chunk"; then
+        echo "tv-shot: invalid base64 chunk at byte $offset" >&2
+        exit 4
+    fi
+    received=$(wc -c < "$tmp/chunk")
+    if [ "$received" -ne "$expected" ]; then
+        echo "tv-shot: chunk size mismatch at byte $offset (expected $expected, received $received)" >&2
+        exit 4
+    fi
+    cat "$tmp/chunk" >> "$tmp/s.png"
+    offset=$((offset+received))
+done
+received=$(wc -c < "$tmp/s.png")
+sum=$(sha256sum < "$tmp/s.png")
+if [ "$received" -ne "$n" ] || [ "${sum%% *}" != "$digest" ]; then
+    echo 'tv-shot: screenshot size or SHA-256 mismatch; refusing to save' >&2
+    exit 4
+fi
+# Do not publish output if cleanup fails. The EXIT trap also attempts cleanup
+# on capture, transfer, verification, conversion and signal failures.
+"$ROOT/tv-access" --timeout 15 "rm -rf '$remote'" >/dev/null
+remote=""
+# Stage in the destination directory for an atomic rename, preserving any
+# existing output if copying or resizing fails (including partial converter output).
+stage=$(mktemp -d "$(dirname "$out")/.tv-shot.XXXXXX")
+staged="$stage/$(basename "$out")"
 if [ "$full" = 1 ]; then
-    cp "$tmp/s.png" "$out"
+    cp -- "$tmp/s.png" "$staged"
 else
     if command -v magick >/dev/null 2>&1; then
-        magick "$tmp/s.png" -resize 960x "$out"
+        magick "$tmp/s.png" -resize 960x "$staged"
     elif command -v nix >/dev/null 2>&1; then
-        nix shell nixpkgs#imagemagick -c magick "$tmp/s.png" -resize 960x "$out"
+        nix shell nixpkgs#imagemagick -c magick "$tmp/s.png" -resize 960x "$staged"
     else
         echo 'tv-shot: resizing needs ImageMagick or Nix; use --full without either' >&2
         exit 2
     fi
 fi
+mv -f -- "$staged" "$out"
 printf '%s\n' "$out"

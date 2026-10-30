@@ -67,7 +67,13 @@ stdout and stderr if they are to outlive the command.
 
 Keys are sent 0.6 seconds apart. Screenshots capture the compositor, not protected
 video. Resized output is 960 pixels wide. `--full` needs no image converter.
-PNGs above 1 MiB are rejected.
+PNGs up to 32 MiB (before resizing) are retrieved through the root channel in
+512 KiB windows, without `sdb pull`. Each window is base64-encoded to stay below
+the 1 MiB response cap. The complete image's size and SHA-256 must match the TV's
+before it is saved or resized. Larger captures and incomplete or corrupt transfers
+fail with exit code 4; channel failures keep their exit status. Temporary files
+are cleaned up and an existing output is left untouched on failure. If the TV
+becomes unreachable, remote cleanup is best-effort and prints a warning.
 
 ## How root works
 

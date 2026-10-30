@@ -27,5 +27,7 @@ tv-shot /tmp/tv.png
   A lost result can mean the command ran. Inspect effects before retrying.
 - Root is reacquired per command after SDB returns. No separate re-root step.
 - Keys can interrupt viewing. Screenshots can expose account data and omit
-  protected video. Keep output private.
+  protected video. Keep output private. `tv-shot` retrieves PNGs up to 32 MiB in
+  bounded chunks and verifies their size and SHA-256 before saving/resizing;
+  `--full` skips the default 960px resize. Size/integrity failures return 4.
 - For app cleanup and interrupted applies, follow `docs/debloat.md`.
