@@ -127,6 +127,20 @@
         "screenshot"
       ],
       "report": "https://github.com/invaliddayta/samsung-tv-tools/issues/6"
+    },
+    {
+      "model": "QE65LS03DAUXXU (The Frame, 2024)",
+      "build": "T-PTMDDEUC-0090-REL-202605141701",
+      "tizen": "9.0",
+      "kernel": "5.4.249",
+      "arch": "armv7l",
+      "source": "community",
+      "reporter": "Liverpool1981",
+      "date": "2026-10-29",
+      "works": [
+        "root"
+      ],
+      "report": "https://github.com/invaliddayta/samsung-tv-tools/issues/7"
     }
   ]
 }

@@ -103,6 +103,7 @@ the [DNS guide](docs/tv-local-dns.md#status-read-this-first).
 |---|---|---|---|---|
 | QE77S90C (S90C, 2023) | 7.0 | `T-PTMCDEUC-REL-202408210126` | root, keys, screenshot, cleanup | maintainer-tested |
 | QA65S90CAWXXY (S90C, 2023) | 9.0 | `T-PTMCUABC-0090-REL-202603190158` | root, keys, screenshot | [CeePeh](https://github.com/invaliddayta/samsung-tv-tools/issues/6) |
+| QE65LS03DAUXXU (The Frame, 2024) | 9.0 | `T-PTMDDEUC-0090-REL-202605141701` | root | [Liverpool1981](https://github.com/invaliddayta/samsung-tv-tools/issues/7) |
 | QE65S85D (S85D, 2024) | 9.0 | `T-PTMDDEUC-0090-REL-202609252355` | root, keys, screenshot | [ibrahimvarola](https://github.com/invaliddayta/samsung-tv-tools/issues/3) |
 | S90C | 9.0 | `T-PTMCDEUC-0090-REL-202603190158` | root, keys, screenshot | [ondererguven](https://github.com/invaliddayta/samsung-tv-tools/issues/4) |
 | S90C | 9.0 | `T-PTMCAKUC-0090-REL-202603190200` | root, screenshot | [chriseivert](https://github.com/invaliddayta/samsung-tv-tools/issues/5) |
