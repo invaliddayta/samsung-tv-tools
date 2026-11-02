@@ -16,7 +16,7 @@ import tempfile
 import time
 
 import compat
-from sdb_direct import DirectSDB, SDBError
+from sdb_direct import DirectSDB, SDBError, busy_hint
 from tv_config import resolve_host
 
 HERE = Path(__file__).resolve().parent
@@ -165,7 +165,8 @@ def execute(host, command, timeout):
             return code, stdout, stderr, flags
         finally:
             connection.__exit__(None, None, None)
-    raise RuntimeError(f'No verified response for job {job}; command NOT retried. Last error: {last_error}')
+    raise RuntimeError(f'No verified response for job {job}; command NOT retried. '
+                       f'Last error: {last_error}') from last_error
 
 
 def print_report(info, present, missing):
@@ -242,6 +243,9 @@ def main():
         return 130
     except (SDBError, OSError, RuntimeError, ValueError, TimeoutError, subprocess.CalledProcessError) as error:
         print('tv-access: ' + str(error), file=sys.stderr)
+        hint = busy_hint(error)
+        if hint:
+            print('tv-access: ' + hint, file=sys.stderr)
         return 125
 
 

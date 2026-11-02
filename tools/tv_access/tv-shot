@@ -117,4 +117,6 @@ else
     fi
 fi
 mv -f -- "$staged" "$out"
+# Warn (never fail) when the capture is nearly empty, e.g. protected video.
+python3 "$ROOT/shot_check.py" "$tmp/s.png" || true
 printf '%s\n' "$out"

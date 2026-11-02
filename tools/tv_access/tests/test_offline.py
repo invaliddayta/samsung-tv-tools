@@ -18,7 +18,7 @@ from urllib.parse import parse_qs, urlparse
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import compat
-from sdb_direct import DirectSDB, SDBError
+from sdb_direct import DirectSDB, SDBError, busy_hint
 from tv_config import resolve_host
 from tv_sdb import build_package, main, parse_probe
 
@@ -113,6 +113,35 @@ class ProtocolTests(unittest.TestCase):
         self.assertEqual(writes[0],b'SEND'+struct.pack('<I',len(name))+name)
         self.assertEqual([len(p) for p in writes[1:-1]],[4008,4008,108])
         self.assertEqual(writes[-1][:4],b'DONE')
+
+
+class HintTests(unittest.TestCase):
+    def run_main(self, error):
+        err = io.StringIO()
+        with patch('sys.argv', ['tv-access', '--tv', '192.0.2.10', 'id -u']), \
+             patch('tv_sdb.execute', side_effect=error), \
+             patch('tv_sdb.exclusive', contextlib.nullcontext), \
+             contextlib.redirect_stderr(err):
+            self.assertEqual(main(), 125)
+        return err.getvalue()
+
+    def test_reset_suggests_local_sdb_server(self):
+        for error in (ConnectionResetError(54, 'Connection reset by peer'), BrokenPipeError(32, 'Broken pipe'),
+                      SDBError('SDB connection closed early')):
+            with self.subTest(error=error):
+                self.assertIn("stop it with 'sdb kill-server'", self.run_main(error))
+
+    def test_reset_as_cause(self):
+        error = RuntimeError('No verified response; command NOT retried')
+        error.__cause__ = ConnectionResetError(54, 'Connection reset by peer')
+        self.assertIn('sdb kill-server', self.run_main(error))
+
+    def test_other_failures_have_no_hint(self):
+        for error in (ConnectionRefusedError(61, 'Connection refused'), TimeoutError('timed out'),
+                      SDBError('Invalid SDB packet header'), RuntimeError('No verified response')):
+            with self.subTest(error=error):
+                self.assertIsNone(busy_hint(error))
+                self.assertNotIn('kill-server', self.run_main(error))
 
 
 class ProbeTests(unittest.TestCase):

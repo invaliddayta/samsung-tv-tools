@@ -10,7 +10,7 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import tv_sdb
-from sdb_direct import SDBError
+from sdb_direct import SDBError, busy_hint
 
 
 class ExecuteTests(unittest.TestCase):
@@ -26,6 +26,7 @@ class ExecuteTests(unittest.TestCase):
         self.fixture_root = root
         self.sdk_commands, self.uploads, self.writes, self.launches = [], [], [], []
         self.attach_failures = 0
+        self.attach_error = SDBError('offline simulated attach refusal')
         self.lost_ack = False
         self.set_result()
         self.patch('tv_sdb.HERE', root)
@@ -68,7 +69,7 @@ class ExecuteTests(unittest.TestCase):
                 test.assertTrue(service.startswith('tcp:'))
                 if test.attach_failures:
                     test.attach_failures -= 1
-                    raise SDBError('offline simulated attach refusal')
+                    raise test.attach_error
             def write(self, data):
                 # Record only sizes or ACK, never the per-job key itself.
                 test.writes.append(data if data == b'ACK1' else len(data))
@@ -97,6 +98,19 @@ class ExecuteTests(unittest.TestCase):
         tv_sdb.execute('offline.invalid', 'printf test', 15)
         self.assertEqual(self.bootstrap_count(), 1)
         self.assertEqual(self.attach_failures, 0)
+
+    def test_unanswered_job_keeps_connection_cause(self):
+        # A competing SDB client resetting every attach must not cause a replay,
+        # but the final error should still carry the reset for the user hint.
+        self.attach_failures = 1000
+        self.attach_error = ConnectionResetError(54, 'Connection reset by peer')
+        clock = iter(range(0, 10000, 10))
+        self.patch('tv_sdb.time.monotonic', lambda: next(clock))
+        with self.assertRaises(RuntimeError) as raised:
+            tv_sdb.execute('offline.invalid', 'printf test', 15)
+        self.assertIn('command NOT retried', str(raised.exception))
+        self.assertIsNotNone(busy_hint(raised.exception))
+        self.assertEqual(self.bootstrap_count(), 1)
 
     def test_lost_ack_retains_verified_result(self):
         self.lost_ack = True

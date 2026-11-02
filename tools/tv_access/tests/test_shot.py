@@ -100,14 +100,14 @@ shutil.copyfile(sys.argv[1], sys.argv[-1])
 '''
 
 
-def png(size):
-    """A valid tiny PNG with an ancillary chunk padding it to an exact size."""
+def png(size, pixel=b'\xff\xff\xff'):
+    """A valid 1x1 RGB PNG with an ancillary chunk padding it to an exact size."""
     def chunk(kind, data):
         return struct.pack('!I', len(data)) + kind + data + struct.pack(
             '!I', zlib.crc32(kind + data))
     image = b'\x89PNG\r\n\x1a\n'
     image += chunk(b'IHDR', struct.pack('!2I5B', 1, 1, 8, 2, 0, 0, 0))
-    image += chunk(b'IDAT', zlib.compress(b'\0\0\0\0'))
+    image += chunk(b'IDAT', zlib.compress(b'\0' + pixel))
     tail = chunk(b'IEND', b'')
     padding = b'Comment\0' + b'x' * (size - len(image) - len(tail) - 20)
     return image + chunk(b'tEXt', padding) + tail
@@ -122,6 +122,7 @@ class ShotTests(unittest.TestCase):
         for directory in (self.bin, self.root/'remote', self.root/'work', self.root/'output'):
             directory.mkdir()
         shutil.copyfile(ROOT/'tv-shot', self.bin/'tv-shot')
+        shutil.copyfile(ROOT/'shot_check.py', self.bin/'shot_check.py')
         self.script('tv-access', CHANNEL)
         self.script('enlightenment_info', COMPOSITOR)
         self.script('magick', CONVERTER)
@@ -248,6 +249,22 @@ os.execv(''' + repr(shutil.which('dd')) + ''', ['dd', *sys.argv[1:]])
         self.assertEqual(arguments[1:3], ['-resize', '960x'])
         self.assertEqual(self.out.read_bytes(), self.source.read_bytes())
         self.assertEqual(result.stdout, str(self.out) + '\n')
+
+    def test_empty_capture_warns_but_is_saved(self):
+        for full in (True, False):
+            with self.subTest(full=full):
+                self.source.write_bytes(png(CHUNK + 5, pixel=b'\0\0\0'))
+                result = self.shot(full=full)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertIn('almost entirely black or transparent', result.stderr)
+                self.assertIn('Protected video', result.stderr)
+                self.assertEqual(result.stdout, str(self.out) + '\n')
+                self.assertEqual(self.out.read_bytes(), self.source.read_bytes())
+
+    def test_captures_with_content_do_not_warn(self):
+        result = self.shot()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stderr, '')
 
     def test_resize_failure_removes_partial_output(self):
         self.out.write_bytes(b'keep existing screenshot')

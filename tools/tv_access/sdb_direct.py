@@ -18,6 +18,21 @@ class SDBError(RuntimeError):
     pass
 
 
+BUSY_HINT = ("hint: the TV's SDB service takes one client at a time. If Samsung's sdb "
+             "server runs on this computer (Tizen Studio or 'sdb connect') and you are "
+             "not using it, stop it with 'sdb kill-server'. See docs/usage.md#troubleshooting.")
+
+
+def busy_hint(error):
+    """Return BUSY_HINT if the error (or its cause) looks like a second SDB client."""
+    for cause in (error, error.__cause__):
+        if isinstance(cause, (ConnectionResetError, ConnectionAbortedError, BrokenPipeError)):
+            return BUSY_HINT
+        if isinstance(cause, SDBError) and str(cause) == 'SDB connection closed early':
+            return BUSY_HINT
+    return None
+
+
 class DirectSDB:
     def __init__(self, host, port=26101, timeout=15):
         self.host, self.port, self.timeout = host, port, timeout
@@ -207,6 +222,9 @@ def main():
                 print(f'Pulled {len(data)} bytes via direct SDB to {args.local}')
     except (SDBError, OSError, ValueError, TimeoutError) as error:
         print(f'SDB: {error}', file=sys.stderr)
+        hint = busy_hint(error)
+        if hint:
+            print('SDB: ' + hint, file=sys.stderr)
         return 1
     return 0
 

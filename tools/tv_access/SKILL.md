@@ -30,4 +30,8 @@ tv-shot /tmp/tv.png
   protected video. Keep output private. `tv-shot` retrieves PNGs up to 32 MiB in
   bounded chunks and verifies their size and SHA-256 before saving/resizing;
   `--full` skips the default 960px resize. Size/integrity failures return 4.
+  A warning about an almost entirely black capture usually means protected
+  video, live TV or HDMI was on screen; the file is still saved.
+- A connection-reset hint about `sdb kill-server` refers to the user's own
+  Samsung sdb server. Do not stop it without asking.
 - For app cleanup and interrupted applies, follow `docs/debloat.md`.

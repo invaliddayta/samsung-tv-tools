@@ -66,7 +66,9 @@ Timeout kills the process group. Detached background processes must close stdin,
 stdout and stderr if they are to outlive the command.
 
 Keys are sent 0.6 seconds apart. Screenshots capture the compositor, not protected
-video. Resized output is 960 pixels wide. `--full` needs no image converter.
+video, live TV or HDMI inputs. If almost all of a capture is black or transparent,
+`tv-shot` still saves it but prints a warning. Resized output is 960 pixels wide.
+`--full` needs no image converter.
 PNGs up to 32 MiB (before resizing) are retrieved through the root channel in
 512 KiB windows, without `sdb pull`. Each window is base64-encoded to stay below
 the 1 MiB response cap. The complete image's size and SHA-256 must match the TV's
@@ -101,9 +103,9 @@ Another SDB client can interfere. Inspect connections rather than killing it bli
 Only handshake resets before a request are retried. Submitted commands are not.
 After a lost result, inspect effects and only that job's staging before further writes.
 
-If connections suddenly close early or fail with `Connection reset by peer`,
-check for a Samsung `sdb` server on your own computer, e.g. a leftover
-`sdb fork-server server --only-detect-tizen` from Tizen Studio or the `sdb` CLI.
+If connections suddenly close early or fail with `Connection reset by peer`
+(`tv-access` then prints a hint), check for a Samsung `sdb` server on your own
+computer, e.g. a leftover `sdb fork-server server --only-detect-tizen` from Tizen Studio or the `sdb` CLI.
 The TV's SDB service serves one client at a time. If that server is yours and
 idle, `sdb kill-server` (or ending that process) restored root access for a
 The Frame owner on macOS, without rebooting the TV
