@@ -138,9 +138,27 @@
       "reporter": "Liverpool1981",
       "date": "2026-10-29",
       "works": [
-        "root"
+        "root",
+        "keys",
+        "screenshot"
       ],
       "report": "https://github.com/invaliddayta/samsung-tv-tools/issues/7"
+    },
+    {
+      "model": "S90C",
+      "build": "T-PTMCUABC-REL-202307281530",
+      "tizen": "7.0",
+      "kernel": "5.4.77",
+      "arch": "armv7l",
+      "source": "community",
+      "reporter": "PhrantiK",
+      "date": "2026-10-31",
+      "works": [
+        "root",
+        "keys",
+        "screenshot"
+      ],
+      "report": "https://github.com/invaliddayta/samsung-tv-tools/issues/8"
     }
   ]
 }

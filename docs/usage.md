@@ -101,6 +101,14 @@ Another SDB client can interfere. Inspect connections rather than killing it bli
 Only handshake resets before a request are retried. Submitted commands are not.
 After a lost result, inspect effects and only that job's staging before further writes.
 
+If connections suddenly close early or fail with `Connection reset by peer`,
+check for a Samsung `sdb` server on your own computer, e.g. a leftover
+`sdb fork-server server --only-detect-tizen` from Tizen Studio or the `sdb` CLI.
+The TV's SDB service serves one client at a time. If that server is yours and
+idle, `sdb kill-server` (or ending that process) restored root access for a
+The Frame owner on macOS, without rebooting the TV
+([#7](https://github.com/invaliddayta/samsung-tv-tools/issues/7)).
+
 To uninstall locally, remove the symlinks and config you installed.
 tv-access itself adds no TV boot service. The optional TV-local DNS service has
 its own [rollback](tv-local-dns.md#disable-and-roll-back). Command side effects
