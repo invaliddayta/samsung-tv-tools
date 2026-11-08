@@ -159,6 +159,23 @@
         "screenshot"
       ],
       "report": "https://github.com/invaliddayta/samsung-tv-tools/issues/8"
+    },
+    {
+      "model": "QA65S95FAULXL (S95F, 2025)",
+      "build": "T-RSMFUABC-0090-REL-202607141954",
+      "tizen": "9.0",
+      "kernel": "5.4.261",
+      "arch": "aarch64",
+      "source": "community",
+      "reporter": "PixelyIon",
+      "date": "2026-11-06",
+      "works": [
+        "root",
+        "keys",
+        "screenshot"
+      ],
+      "notes": "First 2025 model and first aarch64 TV in the list.",
+      "report": "https://github.com/invaliddayta/samsung-tv-tools/issues/9"
     }
   ]
 }
