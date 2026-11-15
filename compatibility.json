@@ -145,6 +145,22 @@
       "report": "https://github.com/invaliddayta/samsung-tv-tools/issues/7"
     },
     {
+      "model": "QE50QN93DATXXU (QN93D, 2024)",
+      "build": "T-PTMDDEUC-0090-REL-202605141701",
+      "tizen": "9.0",
+      "kernel": "5.4.249",
+      "arch": "armv7l",
+      "source": "community",
+      "reporter": "mindbox77",
+      "date": "2026-11-12",
+      "works": [
+        "root",
+        "keys",
+        "screenshot"
+      ],
+      "report": "https://github.com/invaliddayta/samsung-tv-tools/issues/10"
+    },
+    {
       "model": "S90C",
       "build": "T-PTMCUABC-REL-202307281530",
       "tizen": "7.0",
