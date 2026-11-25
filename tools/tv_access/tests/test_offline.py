@@ -170,12 +170,14 @@ class ProbeTests(unittest.TestCase):
 
     def test_shared_build_lists_every_model(self):
         build = 'T-PTMCDEUC-0090-REL-202603190158'
-        self.assertEqual({d['model'] for d in compat.lookup(build)}, {'S90C', 'S95C'})
+        self.assertEqual({d['model'] for d in compat.lookup(build)},
+                         {'S90C', 'S95C', 'QE65S90CATXXH (S90C, 2023)'})
         text = compat.assessment(build)
         self.assertIn('S95C by magne4000', text)
         self.assertIn('S90C by ondererguven', text)
         body, _ = compat.report({'build': build, 'uid': '0'}, [], [])
         self.assertIn('listed: S95C (community), S90C (community)', body)
+        self.assertIn('QE65S90CATXXH (S90C, 2023) (community)', body)
 
     def run_main(self, argv, stdout):
         out, err = io.StringIO(), io.StringIO()

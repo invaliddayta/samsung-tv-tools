@@ -192,6 +192,22 @@
       ],
       "notes": "First 2025 model and first aarch64 TV in the list.",
       "report": "https://github.com/invaliddayta/samsung-tv-tools/issues/9"
+    },
+    {
+      "model": "QE65S90CATXXH (S90C, 2023)",
+      "build": "T-PTMCDEUC-0090-REL-202603190158",
+      "tizen": "9.0",
+      "kernel": "5.4.77",
+      "arch": "armv7l",
+      "source": "community",
+      "reporter": "multiflexi",
+      "date": "2026-11-22",
+      "works": [
+        "root",
+        "keys",
+        "screenshot"
+      ],
+      "report": "https://github.com/invaliddayta/samsung-tv-tools/issues/11"
     }
   ]
 }
